@@ -27,25 +27,22 @@
     return data.brands.find((b) => b.id === activeBrandId) || data.brands[0];
   }
 
-  /* ---------- Rendering ---------- */
+  /* ---------- Full render (structural changes only: load, add/delete row, switch brand) ---------- */
   function render() {
     if (!data.brands.length) return;
     if (!getActiveBrand()) activeBrandId = data.brands[0].id;
-
-    const grandTotal = data.brands.reduce((a, b) => a + calcStats(b).totalOverall, 0);
-    $("grandTotal").textContent = (grandTotal / 1000).toFixed(1);
-
     renderBrands();
     renderBrandSelect();
     renderRight();
+    recompute();
   }
 
   function renderBrands() {
     const body = $("brandsBody");
     body.innerHTML = "";
     data.brands.forEach((b) => {
-      const s = calcStats(b);
       const tr = document.createElement("tr");
+      tr.dataset.brandId = b.id;
       if (b.id === activeBrandId) tr.className = "selected";
       tr.addEventListener("click", (e) => {
         if (e.target.tagName === "INPUT") return; // don't switch when editing inputs
@@ -54,14 +51,12 @@
 
       tr.innerHTML =
         `<td class="name">${escapeHtml(b.name)}</td>` +
-        `<td class="total mono">${s.totalOverall.toFixed(1)}M</td>` +
-        `<td class="lau mono">${(s.lauYearly / 1e6).toFixed(1)}M</td>` +
+        `<td class="total mono b-total"></td>` +
+        `<td class="lau mono b-lau"></td>` +
         `<td class="inp"></td><td class="inp"></td>`;
 
-      const campTd = tr.children[3];
-      const paidTd = tr.children[4];
-      campTd.appendChild(numInput(b.campaign, (v) => { b.campaign = v; render(); }));
-      paidTd.appendChild(numInput(b.paid, (v) => { b.paid = v; render(); }));
+      tr.children[3].appendChild(numInput(b.campaign, (v) => { b.campaign = v; onEdit(); }));
+      tr.children[4].appendChild(numInput(b.paid, (v) => { b.paid = v; onEdit(); }));
       body.appendChild(tr);
     });
   }
@@ -80,34 +75,30 @@
 
   function renderRight() {
     const brand = getActiveBrand();
-    const s = calcStats(brand);
 
-    // Projections
-    const labels = ["Yearly", "6 Mo", "3 Mo", "1 Mo", "Week", "Daily"];
-    const vals = [s.lauYearly, s.lauYearly / 2, s.lauYearly / 4, s.lauYearly / 12, s.lauYearly / 52, s.lauYearly / 365];
-    $("projections").innerHTML = labels.map((l, i) =>
-      `<div class="proj"><div class="lbl">${l}</div><div class="val">${fmt(vals[i])}</div></div>`
-    ).join("");
+    // Projections (no inputs — safe to rebuild)
+    $("projections").innerHTML = ["Yearly", "6 Mo", "3 Mo", "1 Mo", "Week", "Daily"]
+      .map((l) => `<div class="proj"><div class="lbl">${l}</div><div class="val proj-val"></div></div>`).join("");
 
-    // Monthly plan rows
+    // Monthly plan rows (built once; totals updated live via recompute)
     const planBody = $("planBody");
     planBody.innerHTML = "";
     brand.monthlyPlan.forEach((row, idx) => {
       const tr = document.createElement("tr");
+
       const typeTd = document.createElement("td");
       const typeInput = document.createElement("input");
       typeInput.className = "type"; typeInput.value = row.type;
-      typeInput.addEventListener("input", () => { brand.monthlyPlan[idx].type = typeInput.value; });
+      typeInput.addEventListener("input", () => { brand.monthlyPlan[idx].type = typeInput.value; onEdit(); });
       typeTd.appendChild(typeInput);
 
       const qtyTd = document.createElement("td"); qtyTd.className = "c";
-      qtyTd.appendChild(numInput(row.posts, (v) => { brand.monthlyPlan[idx].posts = v; render(); }, "num"));
+      qtyTd.appendChild(numInput(row.posts, (v) => { brand.monthlyPlan[idx].posts = v; onEdit(); }, "num"));
 
       const avgTd = document.createElement("td"); avgTd.className = "c";
-      avgTd.appendChild(numInput(row.avg, (v) => { brand.monthlyPlan[idx].avg = v; render(); }, "num"));
+      avgTd.appendChild(numInput(row.avg, (v) => { brand.monthlyPlan[idx].avg = v; onEdit(); }, "num"));
 
-      const totTd = document.createElement("td"); totTd.className = "total mono";
-      totTd.textContent = fmt(row.posts * row.avg * 1000);
+      const totTd = document.createElement("td"); totTd.className = "total mono row-total";
 
       const xTd = document.createElement("td");
       const del = document.createElement("button");
@@ -115,7 +106,7 @@
       del.innerHTML = '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>';
       del.addEventListener("click", () => {
         brand.monthlyPlan = brand.monthlyPlan.filter((r) => r.id !== row.id);
-        render();
+        render(); onEdit();
       });
       xTd.appendChild(del);
 
@@ -123,10 +114,7 @@
       planBody.appendChild(tr);
     });
 
-    $("totalPosts").textContent = brand.monthlyPlan.reduce((a, b) => a + b.posts, 0);
-    $("totalViews").textContent = fmt(s.monthlyIG);
-
-    // Platform breakdown
+    // Platform breakdown (inputs built once; multiplier updated via recompute)
     $("platforms").innerHTML = "";
     Object.keys(brand.lastYearBreakdown).forEach((plat) => {
       const div = document.createElement("div");
@@ -135,17 +123,57 @@
       const bodyEl = document.createElement("div"); bodyEl.className = "body";
       const inp = document.createElement("input");
       inp.type = "number"; inp.value = brand.lastYearBreakdown[plat] / 1e6;
+      inp.addEventListener("focus", () => inp.select());
       inp.addEventListener("input", () => {
         brand.lastYearBreakdown[plat] = Number(inp.value) * 1e6;
-        render();
+        onEdit();
       });
       const unit = document.createElement("div"); unit.className = "unit"; unit.textContent = "Million";
       bodyEl.append(inp, unit);
       div.append(head, bodyEl);
       $("platforms").appendChild(div);
     });
+  }
 
+  /* ---------- Lightweight recompute: updates derived TEXT only, never touches inputs ---------- */
+  function recompute() {
+    if (!data.brands.length) return;
+
+    const grandTotal = data.brands.reduce((a, b) => a + calcStats(b).totalOverall, 0);
+    $("grandTotal").textContent = (grandTotal / 1000).toFixed(1);
+
+    // Left table derived cells (rows are in the same order as data.brands)
+    const rows = $("brandsBody").children;
+    data.brands.forEach((b, i) => {
+      const s = calcStats(b);
+      const tr = rows[i];
+      if (!tr) return;
+      tr.querySelector(".b-total").textContent = s.totalOverall.toFixed(1) + "M";
+      tr.querySelector(".b-lau").textContent = (s.lauYearly / 1e6).toFixed(1) + "M";
+    });
+
+    // Right side derived values for the active brand
+    const brand = getActiveBrand();
+    const s = calcStats(brand);
+
+    const projVals = [s.lauYearly, s.lauYearly / 2, s.lauYearly / 4, s.lauYearly / 12, s.lauYearly / 52, s.lauYearly / 365];
+    document.querySelectorAll(".proj-val").forEach((el, i) => { el.textContent = fmt(projVals[i]); });
+
+    const planRows = $("planBody").children;
+    brand.monthlyPlan.forEach((row, idx) => {
+      const tr = planRows[idx];
+      if (tr) tr.querySelector(".row-total").textContent = fmt(row.posts * row.avg * 1000);
+    });
+
+    $("totalPosts").textContent = brand.monthlyPlan.reduce((a, b) => a + b.posts, 0);
+    $("totalViews").textContent = fmt(s.monthlyIG);
     $("multiplier").textContent = s.multiplier.toFixed(2) + "x";
+  }
+
+  /* ---------- Called on any edit: refresh derived values + auto-save ---------- */
+  function onEdit() {
+    recompute();
+    scheduleSave();
   }
 
   /* ---------- Helpers ---------- */
@@ -154,7 +182,8 @@
     inp.type = "number";
     inp.className = cls === "num" ? "num" : "cell";
     inp.value = value;
-    inp.addEventListener("input", () => onChange(Number(inp.value)));
+    inp.addEventListener("focus", () => inp.select()); // typing cleanly replaces the value
+    inp.addEventListener("input", () => onChange(inp.value === "" ? 0 : Number(inp.value)));
     return inp;
   }
 
@@ -169,7 +198,13 @@
     t._timer = setTimeout(() => { t.hidden = true; }, 2500);
   }
 
-  /* ---------- Data load / save ---------- */
+  function setStatus(text, cls) {
+    const s = $("status");
+    s.textContent = text;
+    s.className = "status " + cls;
+  }
+
+  /* ---------- Data load ---------- */
   async function load() {
     let loaded = null;
     if (typeof SCRIPT_URL === "string" && SCRIPT_URL.trim()) {
@@ -184,46 +219,57 @@
       }
     }
     data = loaded || JSON.parse(JSON.stringify(SEED_DATA));
-
-    const status = $("status");
-    if (live) { status.textContent = "Live"; status.className = "status status--live"; }
-    else { status.textContent = "Demo"; status.className = "status status--demo"; }
+    setStatus(live ? "Live" : "Demo", live ? "status--live" : "status--demo");
 
     $("loading").hidden = true;
     $("app").hidden = false;
     render();
   }
 
-  async function save() {
+  /* ---------- Save (debounced auto-save + manual button) ---------- */
+  let saveTimer = null;
+  let saving = false;
+  let pending = false;
+
+  function scheduleSave() {
+    if (!live) { setStatus("Demo", "status--demo"); return; }
+    setStatus("Unsaved…", "status--demo");
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(saveNow, 1200); // auto-save 1.2s after last edit
+  }
+
+  async function saveNow() {
     if (!live) {
       toast("Demo mode — connect Google Sheets to persist (see apps-script/DEPLOY.md)");
       return;
     }
-    const btn = $("saveBtn");
-    const label = $("saveLabel");
-    btn.disabled = true; label.textContent = "Saving…";
+    if (saving) { pending = true; return; } // coalesce concurrent saves
+    saving = true;
+    setStatus("Saving…", "status--demo");
     try {
       await fetch(SCRIPT_URL, {
         method: "POST",
         headers: { "Content-Type": "text/plain;charset=utf-8" }, // avoids CORS preflight
         body: JSON.stringify(data)
       });
-      toast("✅ Saved to Google Sheets");
+      setStatus("Saved", "status--live");
     } catch (e) {
       console.error(e);
+      setStatus("Save failed", "status--demo");
       toast("❌ Save failed — check the script URL");
     } finally {
-      btn.disabled = false; label.textContent = "Save Progress";
+      saving = false;
+      if (pending) { pending = false; saveNow(); } // flush queued change
     }
   }
 
   /* ---------- Wire up ---------- */
   document.addEventListener("DOMContentLoaded", () => {
-    $("saveBtn").addEventListener("click", save);
+    $("saveBtn").addEventListener("click", () => { clearTimeout(saveTimer); saveNow(); });
     $("addRowBtn").addEventListener("click", () => {
       const brand = getActiveBrand();
       brand.monthlyPlan.push({ id: Date.now(), type: "New", posts: 0, avg: 0 });
-      render();
+      render(); onEdit();
     });
     load();
   });
