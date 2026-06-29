@@ -5,7 +5,7 @@
  * 2. Paste the /exec URL below to enable live read/write to Google Sheets.
  *    Leave it empty ("") to run in demo mode using the SEED_DATA below.
  */
-const SCRIPT_URL = "";
+const SCRIPT_URL = "https://script.google.com/a/macros/sadhguru.org/s/AKfycbz4rTiXojBGsH9rbItTurQaivj69EtJyxaqYchOvVaQsxXUFElwsH8A16uTovMH476utA/exec";
 
 /** Seed data — mirrors the original Tauri app's data.json. Used in demo mode
  *  and as the first-load fallback if the Sheet can't be reached. */
