@@ -170,10 +170,9 @@
     $("multiplier").textContent = s.multiplier.toFixed(2) + "x";
   }
 
-  /* ---------- Called on any edit: refresh derived values + auto-save ---------- */
+  /* ---------- Called on any edit: refresh derived values ---------- */
   function onEdit() {
     recompute();
-    scheduleSave();
   }
 
   /* ---------- Helpers ---------- */
@@ -226,46 +225,41 @@
     render();
   }
 
-  /* ---------- Save (debounced auto-save + manual button) ---------- */
-  let saveTimer = null;
+  /* ---------- Save (manual button only) ---------- */
   let saving = false;
-  let pending = false;
-
-  function scheduleSave() {
-    if (!live) { setStatus("Demo", "status--demo"); return; }
-    setStatus("Unsaved…", "status--demo");
-    clearTimeout(saveTimer);
-    saveTimer = setTimeout(saveNow, 1200); // auto-save 1.2s after last edit
-  }
 
   async function saveNow() {
     if (!live) {
       toast("Demo mode — connect Google Sheets to persist (see apps-script/DEPLOY.md)");
       return;
     }
-    if (saving) { pending = true; return; } // coalesce concurrent saves
+    if (saving) return; // prevent double-clicks
     saving = true;
-    setStatus("Saving…", "status--demo");
+    const btn = $("saveBtn");
+    btn.disabled = true;
+    btn.textContent = "Saving…";
     try {
       await fetch(SCRIPT_URL, {
         method: "POST",
         headers: { "Content-Type": "text/plain;charset=utf-8" }, // avoids CORS preflight
         body: JSON.stringify(data)
       });
-      setStatus("Saved", "status--live");
+      toast("✅ Saved to Google Sheets");
+      btn.textContent = "Saved!";
+      setTimeout(() => { btn.textContent = "Save Progress"; btn.disabled = false; }, 1500);
     } catch (e) {
       console.error(e);
-      setStatus("Save failed", "status--demo");
       toast("❌ Save failed — check the script URL");
+      btn.textContent = "Save Progress";
+      btn.disabled = false;
     } finally {
       saving = false;
-      if (pending) { pending = false; saveNow(); } // flush queued change
     }
   }
 
   /* ---------- Wire up ---------- */
   document.addEventListener("DOMContentLoaded", () => {
-    $("saveBtn").addEventListener("click", () => { clearTimeout(saveTimer); saveNow(); });
+    $("saveBtn").addEventListener("click", saveNow);
     $("addRowBtn").addEventListener("click", () => {
       const brand = getActiveBrand();
       brand.monthlyPlan.push({ id: Date.now(), type: "New", posts: 0, avg: 0 });
