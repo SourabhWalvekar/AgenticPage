@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TargetSetter — Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="dashboard.css" />
+</head>
+<body>
+  <div id="loading" class="loading">Initialising…</div>
+
+  <div id="app" class="app" hidden>
+    <!-- LEFT PANE -->
+    <aside class="left">
+      <header class="left-head">
+        <div class="brandbar">
+          <span class="logo">◈ TargetSetter</span>
+          <span id="status" class="status status--demo">Demo</span>
+        </div>
+        <h1 class="grand">Total: <span id="grandTotal">0.0</span> B</h1>
+      </header>
+
+      <div class="table-wrap">
+        <table class="brands">
+          <thead>
+            <tr>
+              <th>Platform</th>
+              <th>Total</th>
+              <th>LAU</th>
+              <th>Camp.</th>
+              <th>Paid</th>
+            </tr>
+          </thead>
+          <tbody id="brandsBody"></tbody>
+        </table>
+      </div>
+
+      <footer class="left-foot">
+        <button id="saveBtn" class="btn-save">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+          <span id="saveLabel">Save Progress</span>
+        </button>
+      </footer>
+    </aside>
+
+    <!-- RIGHT PANE -->
+    <main class="right">
+      <!-- Mobile brand selector -->
+      <div class="mobile-pick">
+        <label for="brandSelect">Brand</label>
+        <select id="brandSelect"></select>
+      </div>
+
+      <!-- Projections -->
+      <div class="projections" id="projections"></div>
+
+      <div class="right-scroll">
+        <!-- Monthly content breakdown -->
+        <section class="card">
+          <div class="card-head">
+            <span>Monthly content breakdown IG</span>
+            <button id="addRowBtn" class="link">+ Add Row</button>
+          </div>
+          <div class="card-table-wrap">
+            <table class="plan">
+              <thead>
+                <tr>
+                  <th>Type</th>
+                  <th class="c">Qty</th>
+                  <th class="c">Avg (K)</th>
+                  <th class="r">Total</th>
+                  <th class="x"></th>
+                </tr>
+              </thead>
+              <tbody id="planBody"></tbody>
+            </table>
+          </div>
+          <div class="card-foot">
+            <span>Posts: <b id="totalPosts">0</b></span>
+            <span>Views: <b id="totalViews">0</b></span>
+          </div>
+        </section>
+
+        <!-- Historical breakdown -->
+        <section class="card">
+          <div class="card-head"><span>Last year platform breakdown</span></div>
+          <div class="platforms" id="platforms"></div>
+        </section>
+
+        <div class="multiplier">Current Multiplier: <span id="multiplier">0.00x</span></div>
+      </div>
+    </main>
+  </div>
+
+  <div id="toast" class="toast" hidden></div>
+
+  <script src="config.js"></script>
+  <script src="dashboard.js"></script>
+</body>
+</html>
