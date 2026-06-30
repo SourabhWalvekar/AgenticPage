@@ -375,7 +375,17 @@
         const res = await fetch(url, { method: "GET" });
         if (res.ok) {
           const json = await res.json();
-          if (json && typeof json === "object") { data = json; return true; }
+          // Live endpoint wraps the series as { generatedAt, brands: {...} };
+          // the dashboard expects data keyed directly by tab/brand name.
+          const payload = (json && json.brands && !Array.isArray(json.brands) && typeof json.brands === "object")
+            ? json.brands : json;
+          // Validate it actually looks like reports data (a tab with weeks[] +
+          // platforms{}). Guards against pointing at the wrong endpoint, in
+          // which case we fall back to the bundled demo data below.
+          const looksLikeReports = payload && typeof payload === "object" && !Array.isArray(payload) &&
+            Object.keys(payload).some((k) => payload[k] && Array.isArray(payload[k].weeks) &&
+              payload[k].platforms && typeof payload[k].platforms === "object");
+          if (looksLikeReports) { data = payload; return true; }
         }
       } catch (e) { console.warn("Live fetch failed, using demo data.", e); }
     }
