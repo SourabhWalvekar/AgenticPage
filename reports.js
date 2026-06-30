@@ -199,7 +199,10 @@
   function populateMetrics() {
     const metrics = Object.keys((data[state.brand].platforms[state.platform]) || {});
     setOptions($("metricSel"), metrics.map((m) => ({ value: m, label: m })), state.metric);
-    if (!metrics.includes(state.metric)) state.metric = metrics[0];
+    // Default to "Views" if available, otherwise first metric
+    if (!metrics.includes(state.metric)) {
+      state.metric = metrics.includes("Views") ? "Views" : metrics[0];
+    }
     $("metricSel").value = state.metric;
   }
 
