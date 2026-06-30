@@ -364,22 +364,34 @@
     $("toWeek").value = String(state.to);
   }
 
-  /* ---------- load ---------- */
-  async function load() {
-    let live = false;
+  /* ---------- data fetch ---------- */
+  // Pulls data into the global `data` object. Returns true if it came from the
+  // live Apps Script endpoint, false if it fell back to the bundled demo seed.
+  async function fetchData() {
     if (typeof REPORTS_SCRIPT_URL === "string" && REPORTS_SCRIPT_URL.trim()) {
       try {
-        const res = await fetch(REPORTS_SCRIPT_URL, { method: "GET" });
+        // cache-bust so a refresh always hits the sheet, not a cached response
+        const url = REPORTS_SCRIPT_URL + (REPORTS_SCRIPT_URL.includes("?") ? "&" : "?") + "t=" + Date.now();
+        const res = await fetch(url, { method: "GET" });
         if (res.ok) {
           const json = await res.json();
-          if (json && typeof json === "object") { data = json; live = true; }
+          if (json && typeof json === "object") { data = json; return true; }
         }
       } catch (e) { console.warn("Live fetch failed, using demo data.", e); }
     }
-    if (!live) data = JSON.parse(JSON.stringify(REPORTS_SEED));
+    data = JSON.parse(JSON.stringify(REPORTS_SEED));
+    return false;
+  }
 
+  function setStatus(live) {
     $("status").textContent = live ? "Live" : "Demo";
     $("status").className = "status " + (live ? "status--live" : "status--demo");
+  }
+
+  /* ---------- initial load ---------- */
+  async function load() {
+    const live = await fetchData();
+    setStatus(live);
 
     const brands = brandsWithData();
     state.brand = brands[0];
@@ -391,6 +403,55 @@
     render();
   }
 
+  /* ---------- refresh (re-pull while keeping current selection) ---------- */
+  let refreshing = false;
+  async function refresh() {
+    if (refreshing) return;
+    refreshing = true;
+
+    const btn = $("refreshBtn");
+    btn.disabled = true;
+    btn.classList.add("is-loading");
+    $("refreshOverlay").hidden = false;
+
+    // remember current selection so the view doesn't jump around
+    const prev = { brand: state.brand, platform: state.platform, metric: state.metric };
+    const startedAt = Date.now();
+
+    let live = false;
+    try {
+      live = await fetchData();
+    } finally {
+      // keep the spinner visible for at least a moment so it's perceptible
+      const elapsed = Date.now() - startedAt;
+      if (elapsed < 500) await new Promise(r => setTimeout(r, 500 - elapsed));
+
+      setStatus(live);
+
+      // restore selection where still valid, else fall back to defaults
+      const brands = brandsWithData();
+      state.brand = brands.includes(prev.brand) ? prev.brand : brands[0];
+      populateBrands();
+      $("brandSel").value = state.brand;
+
+      populatePlatforms();
+      const plats = Array.from($("platSel").options).map(o => o.value);
+      if (plats.includes(prev.platform)) { state.platform = prev.platform; $("platSel").value = prev.platform; }
+
+      populateMetrics();
+      const metrics = Array.from($("metricSel").options).map(o => o.value);
+      if (metrics.includes(prev.metric)) { state.metric = prev.metric; $("metricSel").value = prev.metric; }
+
+      populateCustomWeeks();
+      render();
+
+      $("refreshOverlay").hidden = true;
+      btn.classList.remove("is-loading");
+      btn.disabled = false;
+      refreshing = false;
+    }
+  }
+
   document.addEventListener("DOMContentLoaded", () => {
     $("brandSel").addEventListener("change", onBrandChange);
     $("platSel").addEventListener("change", onPlatformChange);
@@ -399,6 +460,7 @@
     $("fromWeek").addEventListener("change", () => { state.from = parseInt($("fromWeek").value, 10); render(); });
     $("toWeek").addEventListener("change", () => { state.to = parseInt($("toWeek").value, 10); render(); });
     $("csvBtn").addEventListener("click", exportCsv);
+    $("refreshBtn").addEventListener("click", refresh);
     load();
   });
 })();

@@ -37,7 +37,39 @@ body {
 .status--demo { background: #fef3c7; color: #92400e; }
 .status--live { background: var(--brand-soft); color: #065f46; }
 
-.loading { text-align: center; padding: 80px 20px; color: var(--muted); font-size: 14px; }
+.loading { text-align: center; padding: 80px 20px; color: var(--muted); font-size: 14px; display: flex; flex-direction: column; align-items: center; gap: 14px; }
+
+/* Refresh button */
+.refresh-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: var(--brand); color: #fff; border: 0; border-radius: 8px;
+  padding: 6px 12px; font-size: 13px; font-weight: 600; cursor: pointer; font-family: inherit;
+}
+.refresh-btn:hover { filter: brightness(.95); }
+.refresh-btn:disabled { opacity: .6; cursor: not-allowed; }
+.refresh-ico { font-size: 15px; line-height: 1; display: inline-block; }
+.refresh-btn.is-loading .refresh-ico { animation: spin .8s linear infinite; }
+
+/* Spinner */
+.spinner {
+  width: 22px; height: 22px; border-radius: 50%;
+  border: 3px solid var(--border); border-top-color: var(--brand);
+  display: inline-block; animation: spin .8s linear infinite;
+}
+.spinner--lg { width: 38px; height: 38px; border-width: 4px; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Refresh overlay */
+.refresh-overlay {
+  position: fixed; inset: 0; z-index: 50;
+  background: rgba(15, 23, 42, 0.45); backdrop-filter: blur(2px);
+  display: flex; align-items: center; justify-content: center;
+}
+.refresh-box {
+  display: flex; flex-direction: column; align-items: center; gap: 14px;
+  background: var(--card); padding: 28px 40px; border-radius: 14px;
+  box-shadow: var(--shadow); color: var(--text); font-weight: 600; font-size: 14px;
+}
 
 .wrap { max-width: 1100px; margin: 0 auto; padding: 22px; }
 

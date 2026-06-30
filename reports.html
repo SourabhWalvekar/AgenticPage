@@ -16,11 +16,25 @@
       <a href="index.html">Home</a>
       <a href="dashboard.html">TargetSetter</a>
       <a href="reports.html" class="active">Reports</a>
+      <button id="refreshBtn" class="refresh-btn" title="Pull the latest data">
+        <span class="refresh-ico">⟳</span><span class="refresh-txt">Refresh</span>
+      </button>
       <span id="status" class="status status--demo">Demo</span>
     </nav>
   </header>
 
-  <div id="loading" class="loading">Loading reports…</div>
+  <div id="loading" class="loading">
+    <span class="spinner"></span>
+    <span class="loading-txt">Loading reports…</span>
+  </div>
+
+  <!-- Overlay shown while refreshing already-loaded data -->
+  <div id="refreshOverlay" class="refresh-overlay" hidden>
+    <div class="refresh-box">
+      <span class="spinner spinner--lg"></span>
+      <span class="refresh-msg">Pulling latest data…</span>
+    </div>
+  </div>
 
   <main id="app" class="wrap" hidden>
     <!-- Controls -->
