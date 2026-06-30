@@ -15,11 +15,11 @@
     if (a >= 1e9) return (v / 1e9).toFixed(2) + "B";
     if (a >= 1e6) return (v / 1e6).toFixed(2) + "M";
     if (a >= 1e3) return (v / 1e3).toFixed(1) + "K";
-    return String(Math.round(v * 100) / 100);
+    return v.toLocaleString("en-US", { maximumFractionDigits: 2 });
   }
   function fmtFull(v) {
     if (v == null || isNaN(v)) return "—";
-    return v.toLocaleString("en-IN", { maximumFractionDigits: 2 });
+    return v.toLocaleString("en-US", { maximumFractionDigits: 2 });
   }
   function pct(cur, prev) {
     if (prev == null || prev === 0 || cur == null) return null;
