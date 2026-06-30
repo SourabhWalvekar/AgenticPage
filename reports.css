@@ -69,6 +69,9 @@ body {
 .kpi .sub.up { color: var(--up); }
 .kpi .sub.down { color: var(--down); }
 .kpi .sub.flat { color: var(--muted); }
+.kpi--head { background: linear-gradient(135deg, #ecfdf5, #ffffff); border-color: #6ee7b7; }
+.kpi--head .lbl { color: #059669; }
+.kpi--head .val { color: #047857; }
 
 /* Cards */
 .card { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 18px; box-shadow: var(--shadow); margin-bottom: 18px; }

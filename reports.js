@@ -26,6 +26,44 @@
     return ((cur - prev) / Math.abs(prev)) * 100;
   }
 
+  /* ---------- aggregation type per parameter ----------
+     Decides how a metric should be summarised over a date range:
+       "sum"    -> additive counts (Views, Posts, Impressions, Follows...) => show TOTAL
+       "avg"    -> deduplicated audience / already-averaged / rate metrics
+                   (Organic Reach, Unique Views, Avg Views, %...) => show AVERAGE
+                   (summing these double-counts people, so it is meaningless)
+       "latest" -> cumulative snapshots (total Followers / Subscribers count)
+                   => show the most recent value                                */
+  function aggType(metric) {
+    const s = String(metric || "").toLowerCase();
+    if (/reach|unique|\bavg\b|average|rate|%|per post/.test(s)) return "avg";
+    const isGrowth = /\bnet\b|\bnew\b|gain|growth|added|follows|unfollow/.test(s);
+    if (!isGrowth && /(subscriber|follower)/.test(s)) return "latest";
+    return "sum";
+  }
+  function aggLabel(metric) {
+    const t = aggType(metric);
+    const s = String(metric || "");
+    if (t === "sum") return "Total " + s;
+    if (t === "latest") return "Latest " + s;
+    // avg: avoid awkward "Avg Avg Views"
+    return /\bavg\b|average/i.test(s) ? s : "Avg " + s;
+  }
+  function aggValue(values, metric) {
+    const valid = values.filter((v) => v != null);
+    if (!valid.length) return null;
+    const t = aggType(metric);
+    if (t === "sum") return valid.reduce((a, b) => a + b, 0);
+    if (t === "latest") return valid[valid.length - 1];
+    return valid.reduce((a, b) => a + b, 0) / valid.length;
+  }
+  function aggHint(metric) {
+    const t = aggType(metric);
+    if (t === "sum") return "summed across period";
+    if (t === "latest") return "most recent week (cumulative)";
+    return "weekly average — can't be summed";
+  }
+
   /* ---------- dropdown population ---------- */
   function setOptions(sel, items, selected) {
     sel.innerHTML = "";
@@ -99,7 +137,7 @@
     const hasData = values.some((v) => v != null);
     $("noData").hidden = hasData;
     drawChart(labels, values, hasData);
-    renderKpis(values);
+    renderKpis(values, state.metric);
     renderTable(labels, values);
   }
 
@@ -141,20 +179,25 @@
     });
   }
 
-  function renderKpis(values) {
+  function renderKpis(values, metric) {
     const valid = values.filter((v) => v != null);
     const latest = valid.length ? valid[valid.length - 1] : null;
     const prev = valid.length > 1 ? valid[valid.length - 2] : null;
     const change = pct(latest, prev);
-    const avg = valid.length ? valid.reduce((a, b) => a + b, 0) / valid.length : null;
     const peak = valid.length ? Math.max(...valid) : null;
+
+    // Adaptive headline KPI: TOTAL for additive metrics, AVERAGE for
+    // dedup/rate metrics (e.g. Organic Reach), LATEST for cumulative counts.
+    const headVal = aggValue(values, metric);
+    const headLbl = aggLabel(metric);
+    const headHint = aggHint(metric);
 
     const changeCls = change == null ? "flat" : change > 0 ? "up" : change < 0 ? "down" : "flat";
     const changeTxt = change == null ? "—" : (change > 0 ? "▲ " : change < 0 ? "▼ " : "") + Math.abs(change).toFixed(1) + "%";
 
     $("kpis").innerHTML = `
+      <div class="kpi kpi--head"><div class="lbl">${headLbl}</div><div class="val">${fmtCompact(headVal)}</div><div class="sub flat">${headHint}</div></div>
       <div class="kpi"><div class="lbl">Latest week</div><div class="val">${fmtCompact(latest)}</div><div class="sub ${changeCls}">${changeTxt} WoW</div></div>
-      <div class="kpi"><div class="lbl">Period average</div><div class="val">${fmtCompact(avg)}</div><div class="sub flat">per week</div></div>
       <div class="kpi"><div class="lbl">Period peak</div><div class="val">${fmtCompact(peak)}</div><div class="sub flat">highest week</div></div>
       <div class="kpi"><div class="lbl">Weeks with data</div><div class="val">${valid.length}</div><div class="sub flat">of ${values.length} shown</div></div>`;
   }
@@ -186,6 +229,8 @@
       const ch = pct(values[i], i > 0 ? values[i - 1] : null);
       csv += `"${wk}",${values[i] == null ? "" : values[i]},${ch == null ? "" : ch.toFixed(2)}\n`;
     });
+    const hv = aggValue(values, state.metric);
+    csv += `\n"${aggLabel(state.metric)} (${aggHint(state.metric)})",${hv == null ? "" : hv}\n`;
     const blob = new Blob([csv], { type: "text/csv" });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
