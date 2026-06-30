@@ -64,6 +64,108 @@
     return "weekly average — can't be summed";
   }
 
+  /* ---------- fiscal-year (Apr–Mar) helpers for target tracking ---------- */
+  const MONTHS_IDX = { jan: 1, feb: 2, mar: 3, apr: 4, may: 5, jun: 6, jul: 7,
+    aug: 8, sep: 9, sept: 9, oct: 10, nov: 11, dec: 12 };
+  // Views-type series to use per platform, in priority order
+  const VIEW_KEYS = ["Total views", "Views", "Organic Views", "Impressions"];
+
+  function firstMonthOf(weekLabel) {
+    const m = String(weekLabel).toLowerCase().match(/(jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)/);
+    return m ? MONTHS_IDX[m[1]] : null;
+  }
+
+  // Index of the first week belonging to the current fiscal year (April onward).
+  // Weeks are chronological; the single April present marks the FY start.
+  function fiscalStartIndex(weeks) {
+    for (let i = 0; i < weeks.length; i++) {
+      if (firstMonthOf(weeks[i]) === 4) return i;
+    }
+    return 0; // no April found -> count everything
+  }
+
+  function viewSeriesFor(platObj) {
+    if (!platObj) return null;
+    for (const k of VIEW_KEYS) if (platObj[k]) return platObj[k];
+    return null;
+  }
+
+  // Cumulative Views delivered since 1 April, for one platform.
+  function ytdViewsForPlatform(brandData, platName, startIdx) {
+    const series = viewSeriesFor((brandData.platforms || {})[platName]);
+    if (!series) return null;
+    let sum = 0, any = false;
+    for (let i = startIdx; i < series.length; i++) {
+      if (series[i] != null) { sum += series[i]; any = true; }
+    }
+    return any ? sum : null;
+  }
+
+  function renderTargets() {
+    const card = $("targetCard");
+    const tgt = (typeof REPORTS_TARGETS === "object" && REPORTS_TARGETS) ? REPORTS_TARGETS[state.brand] : null;
+    const brandData = data[state.brand];
+    if (!tgt || !brandData) { card.hidden = true; return; }
+    card.hidden = false;
+
+    const weeks = brandData.weeks || [];
+    const startIdx = fiscalStartIndex(weeks);
+    const fromLabel = weeks[startIdx] || "—";
+
+    // Per-platform YTD views + brand total
+    const platNames = Object.keys(brandData.platforms || {});
+    let brandYtd = 0;
+    const platRows = [];
+    platNames.forEach((p) => {
+      const v = ytdViewsForPlatform(brandData, p, startIdx);
+      if (v != null) brandYtd += v;
+      const pt = (tgt.platforms || {})[p];
+      if (v != null || pt) platRows.push({ name: p, ytd: v, target: pt });
+    });
+
+    const pctOf = (got, target) => (target && got != null) ? (got / target) * 100 : null;
+    const brandPct = pctOf(brandYtd, tgt.annual);
+
+    const bar = (p) => {
+      const w = Math.max(0, Math.min(100, p || 0));
+      const cls = p == null ? "" : p >= 100 ? "bar--done" : p >= 60 ? "bar--ok" : "bar--low";
+      return `<div class="bar"><div class="bar-fill ${cls}" style="width:${w}%"></div></div>`;
+    };
+
+    $("targetMeta").textContent = `FY 2026–27 · Views only · counting from ${fromLabel}`;
+
+    let html = `
+      <div class="tgt-head">
+        <div class="tgt-big">
+          <div class="tgt-pct">${brandPct == null ? "—" : brandPct.toFixed(1) + "%"}</div>
+          <div class="tgt-sub">of annual target achieved</div>
+        </div>
+        <div class="tgt-nums">
+          <div><span class="k">Achieved (YTD)</span><span class="v">${fmtCompact(brandYtd)}</span></div>
+          <div><span class="k">Annual target</span><span class="v">${fmtCompact(tgt.annual)}</span></div>
+          <div><span class="k">Organic (LAU + Campaigns)</span><span class="v">${fmtCompact(tgt.organic)}</span></div>
+          <div><span class="k">Paid</span><span class="v">${fmtCompact(tgt.paid)}</span></div>
+        </div>
+      </div>
+      ${bar(brandPct)}`;
+
+    if (platRows.length) {
+      html += `<table class="tgt-table"><thead><tr><th>Platform</th><th>Achieved (YTD)</th><th>Target</th><th>%</th><th></th></tr></thead><tbody>`;
+      platRows.forEach((r) => {
+        const p = pctOf(r.ytd, r.target);
+        html += `<tr>
+          <td>${r.name}</td>
+          <td class="mono">${fmtCompact(r.ytd)}</td>
+          <td class="mono">${r.target ? fmtCompact(r.target) : "—"}</td>
+          <td class="mono">${p == null ? "—" : p.toFixed(1) + "%"}</td>
+          <td class="bar-cell">${bar(p)}</td>
+        </tr>`;
+      });
+      html += `</tbody></table>`;
+    }
+    $("targetBody").innerHTML = html;
+  }
+
   /* ---------- dropdown population ---------- */
   function setOptions(sel, items, selected) {
     sel.innerHTML = "";
@@ -138,6 +240,7 @@
     $("noData").hidden = hasData;
     drawChart(labels, values, hasData);
     renderKpis(values, state.metric);
+    renderTargets();
     renderTable(labels, values);
   }
 
