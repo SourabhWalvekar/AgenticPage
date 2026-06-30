@@ -258,8 +258,40 @@
   }
 
   /* ---------- Wire up ---------- */
+  async function resetToDefaults() {
+    const confirmed = confirm(
+      "⚠️ Reset to Defaults?\n\n" +
+      "This will:\n" +
+      "• Pull the original 2026 targets from the Default Targets Sheet\n" +
+      "• Overwrite ALL current data in TargetSetter\n" +
+      "• Delete any custom edits you've made\n\n" +
+      "This action cannot be undone. Continue?"
+    );
+    if (!confirmed) return;
+
+    const btn = $("resetBtn");
+    const originalText = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle></svg><span>Resetting...</span>';
+    
+    try {
+      const url = SCRIPT_URL + (SCRIPT_URL.includes("?") ? "&" : "?") + "mode=reset";
+      const res = await fetch(url, { method: "POST" });
+      if (!res.ok) throw new Error("Reset failed");
+      
+      toast("✅ Reset to defaults — reloading…");
+      setTimeout(() => location.reload(), 800);
+    } catch (err) {
+      console.error(err);
+      toast("❌ Reset failed");
+      btn.innerHTML = originalText;
+      btn.disabled = false;
+    }
+  }
+
   document.addEventListener("DOMContentLoaded", () => {
     $("saveBtn").addEventListener("click", saveNow);
+    $("resetBtn").addEventListener("click", resetToDefaults);
     $("addRowBtn").addEventListener("click", () => {
       const brand = getActiveBrand();
       brand.monthlyPlan.push({ id: Date.now(), type: "New", posts: 0, avg: 0 });
