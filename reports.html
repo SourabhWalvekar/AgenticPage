@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SM Performance Reports — Weekly Trends</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <link rel="stylesheet" href="reports.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand"><span class="logo">📊</span> SM Performance Reports</div>
+    <nav class="nav">
+      <a href="index.html">Home</a>
+      <a href="dashboard.html">TargetSetter</a>
+      <a href="reports.html" class="active">Reports</a>
+      <span id="status" class="status status--demo">Demo</span>
+    </nav>
+  </header>
+
+  <div id="loading" class="loading">Loading reports…</div>
+
+  <main id="app" class="wrap" hidden>
+    <!-- Controls -->
+    <section class="controls">
+      <div class="ctrl">
+        <label for="brandSel">Brand</label>
+        <select id="brandSel"></select>
+      </div>
+      <div class="ctrl">
+        <label for="platSel">Platform</label>
+        <select id="platSel"></select>
+      </div>
+      <div class="ctrl">
+        <label for="metricSel">Parameter</label>
+        <select id="metricSel"></select>
+      </div>
+      <div class="ctrl">
+        <label for="rangeSel">Date range</label>
+        <select id="rangeSel">
+          <option value="1">Last week</option>
+          <option value="4">Last month (4 weeks)</option>
+          <option value="12" selected>Last quarter (12 weeks)</option>
+          <option value="52">Last year (52 weeks)</option>
+          <option value="all">All weeks</option>
+          <option value="custom">Custom…</option>
+        </select>
+      </div>
+      <div class="ctrl custom-range" id="customRange" hidden>
+        <label>Custom weeks</label>
+        <div class="custom-inputs">
+          <select id="fromWeek"></select>
+          <span class="dash">→</span>
+          <select id="toWeek"></select>
+        </div>
+      </div>
+    </section>
+
+    <!-- KPI summary -->
+    <section class="kpis" id="kpis"></section>
+
+    <!-- Chart -->
+    <section class="card chart-card">
+      <div class="chart-head">
+        <h2 id="chartTitle">—</h2>
+        <span id="chartMeta" class="meta"></span>
+      </div>
+      <div class="chart-box">
+        <canvas id="chart"></canvas>
+      </div>
+      <div id="noData" class="no-data" hidden>No data available for this selection.</div>
+    </section>
+
+    <!-- Data table -->
+    <section class="card">
+      <div class="table-head">
+        <h3>Weekly values</h3>
+        <button id="csvBtn" class="csv-btn">⬇ Export CSV</button>
+      </div>
+      <div class="table-scroll">
+        <table class="data-table">
+          <thead><tr><th>Week</th><th id="valCol">Value</th><th>WoW change</th></tr></thead>
+          <tbody id="tableBody"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <script src="reports-config.js"></script>
+  <script src="reports-data.js"></script>
+  <script src="reports.js"></script>
+</body>
+</html>
