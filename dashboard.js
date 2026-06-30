@@ -3,7 +3,7 @@
   "use strict";
 
   let data = { brands: [] };
-  let activeBrandId = "cp";
+  let activeBrandId = "if"; // Default to Isha Foundation
   let live = false; // true when connected to Google Sheets
 
   const $ = (id) => document.getElementById(id);
