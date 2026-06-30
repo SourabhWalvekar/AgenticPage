@@ -75,26 +75,29 @@
     <!-- KPI summary -->
     <section class="kpis" id="kpis"></section>
 
-    <!-- Annual Views target achievement (FY Apr–Mar, Views only) -->
-    <section class="card target-card" id="targetCard" hidden>
-      <div class="table-head">
-        <h3>🎯 Annual Views target — achieved since April</h3>
-        <span id="targetMeta" class="meta"></span>
-      </div>
-      <div id="targetBody" class="target-body"></div>
-    </section>
+    <!-- Two-column layout: Target + Chart side by side -->
+    <div class="two-col">
+      <!-- LEFT: Annual Views target achievement (FY Apr–Mar, Views only) -->
+      <section class="card target-card" id="targetCard" hidden>
+        <div class="table-head">
+          <h3>🎯 Annual Views Target</h3>
+          <span id="targetMeta" class="meta"></span>
+        </div>
+        <div id="targetBody" class="target-body"></div>
+      </section>
 
-    <!-- Chart -->
-    <section class="card chart-card">
-      <div class="chart-head">
-        <h2 id="chartTitle">—</h2>
-        <span id="chartMeta" class="meta"></span>
-      </div>
-      <div class="chart-box">
-        <canvas id="chart"></canvas>
-      </div>
-      <div id="noData" class="no-data" hidden>No data available for this selection.</div>
-    </section>
+      <!-- RIGHT: Chart -->
+      <section class="card chart-card">
+        <div class="chart-head">
+          <h2 id="chartTitle">—</h2>
+          <span id="chartMeta" class="meta"></span>
+        </div>
+        <div class="chart-box">
+          <canvas id="chart"></canvas>
+        </div>
+        <div id="noData" class="no-data" hidden>No data available for this selection.</div>
+      </section>
+    </div>
 
     <!-- Data table -->
     <section class="card">
