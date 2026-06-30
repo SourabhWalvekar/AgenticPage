@@ -37,44 +37,6 @@
   </div>
 
   <main id="app" class="wrap" hidden>
-    <!-- Controls -->
-    <section class="controls">
-      <div class="ctrl">
-        <label for="brandSel">Brand</label>
-        <select id="brandSel"></select>
-      </div>
-      <div class="ctrl">
-        <label for="platSel">Platform</label>
-        <select id="platSel"></select>
-      </div>
-      <div class="ctrl">
-        <label for="metricSel">Parameter</label>
-        <select id="metricSel"></select>
-      </div>
-      <div class="ctrl">
-        <label for="rangeSel">Date range</label>
-        <select id="rangeSel">
-          <option value="1">Last week</option>
-          <option value="4">Last month (4 weeks)</option>
-          <option value="12" selected>Last quarter (12 weeks)</option>
-          <option value="52">Last year (52 weeks)</option>
-          <option value="all">All weeks</option>
-          <option value="custom">Custom…</option>
-        </select>
-      </div>
-      <div class="ctrl custom-range" id="customRange" hidden>
-        <label>Custom weeks</label>
-        <div class="custom-inputs">
-          <select id="fromWeek"></select>
-          <span class="dash">→</span>
-          <select id="toWeek"></select>
-        </div>
-      </div>
-    </section>
-
-    <!-- KPI summary -->
-    <section class="kpis" id="kpis"></section>
-
     <!-- Two-column layout: Target + Chart side by side -->
     <div class="two-col">
       <!-- LEFT: Annual Views target achievement (FY Apr–Mar, Views only) -->
@@ -86,12 +48,51 @@
         <div id="targetBody" class="target-body"></div>
       </section>
 
-      <!-- RIGHT: Chart -->
+      <!-- RIGHT: Chart (with integrated controls + KPI strip) -->
       <section class="card chart-card">
+        <!-- Inline controls inside the chart -->
+        <div class="chart-controls">
+          <div class="ctrl">
+            <label for="brandSel">Brand</label>
+            <select id="brandSel"></select>
+          </div>
+          <div class="ctrl">
+            <label for="platSel">Platform</label>
+            <select id="platSel"></select>
+          </div>
+          <div class="ctrl">
+            <label for="metricSel">Parameter</label>
+            <select id="metricSel"></select>
+          </div>
+          <div class="ctrl">
+            <label for="rangeSel">Date range</label>
+            <select id="rangeSel">
+              <option value="1">Last week</option>
+              <option value="4">Last month (4 weeks)</option>
+              <option value="12" selected>Last quarter (12 weeks)</option>
+              <option value="52">Last year (52 weeks)</option>
+              <option value="all">All weeks</option>
+              <option value="custom">Custom…</option>
+            </select>
+          </div>
+          <div class="ctrl custom-range" id="customRange" hidden>
+            <label>Custom weeks</label>
+            <div class="custom-inputs">
+              <select id="fromWeek"></select>
+              <span class="dash">→</span>
+              <select id="toWeek"></select>
+            </div>
+          </div>
+        </div>
+
         <div class="chart-head">
           <h2 id="chartTitle">—</h2>
           <span id="chartMeta" class="meta"></span>
         </div>
+
+        <!-- KPI summary strip -->
+        <section class="kpis" id="kpis"></section>
+
         <div class="chart-box">
           <canvas id="chart"></canvas>
         </div>
