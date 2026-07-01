@@ -124,6 +124,22 @@ body {
 .tag--fb { background: #dbeafe; color: #1d4ed8; }
 .tag--type { background: #f1f5f9; color: #475569; }
 
+/* Post thumbnails */
+.thumb-cell { width: 80px; text-align: center; padding: 8px !important; }
+.post-thumb { 
+  width: 60px; 
+  height: 60px; 
+  object-fit: cover; 
+  border-radius: 6px; 
+  border: 1px solid var(--border);
+  display: block;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.post-thumb:hover {
+  transform: scale(1.05);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
 /* Responsive */
 @media (max-width: 1100px) {
   .kpis { grid-template-columns: repeat(3, 1fr); }
