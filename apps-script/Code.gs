@@ -37,6 +37,48 @@ var REPORTS_SPREADSHEET_ID = '1nB1sUNYWD8LImcBtcdgeMA0c_F2Zgj-gjp0e4FQc-54';
 var DEFAULT_TARGETS_SHEET_ID = '1Zg1rtrsXcLoQNk6ciNBGQfhLfDkACkzW3W5hxvFbTnY';
 
 /* ======================================================================
+ *  DEBUG HELPER
+ * ====================================================================== */
+
+/**
+ * AUTHORIZE_ME - Debug helper to test Meta API token and trigger OAuth consent.
+ * Run this function manually from the Apps Script editor to:
+ * 1. Trigger the OAuth permission prompt for UrlFetchApp.fetch
+ * 2. Test if your META_ACCESS_TOKEN is valid
+ * 3. See what data the Meta API returns
+ * 
+ * Check the Execution log after running to see the result.
+ */
+function AUTHORIZE_ME() {
+  try {
+    var token = PropertiesService.getScriptProperties().getProperty('META_ACCESS_TOKEN');
+    if (!token) {
+      Logger.log('❌ ERROR: META_ACCESS_TOKEN not found in Script Properties');
+      return;
+    }
+    
+    Logger.log('🔑 Testing token: ' + token.substring(0, 20) + '...');
+    
+    var url = 'https://graph.facebook.com/v25.0/me?access_token=' + encodeURIComponent(token);
+    var response = UrlFetchApp.fetch(url, { muteHttpExceptions: true });
+    var code = response.getResponseCode();
+    var content = response.getContentText();
+    
+    Logger.log('📡 Response code: ' + code);
+    Logger.log('📄 Response body: ' + content);
+    
+    if (code === 200) {
+      var data = JSON.parse(content);
+      Logger.log('✅ SUCCESS! Token is valid. Account: ' + data.name + ' (ID: ' + data.id + ')');
+    } else {
+      Logger.log('❌ ERROR: Token is invalid or expired');
+    }
+  } catch (err) {
+    Logger.log('❌ EXCEPTION: ' + err.toString());
+  }
+}
+
+/* ======================================================================
  *  ROUTING
  * ====================================================================== */
 
