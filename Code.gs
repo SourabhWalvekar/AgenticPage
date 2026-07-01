@@ -584,7 +584,7 @@ function fetchIG_(ids) {
   var media = [];
   try {
     var mr = metaGet_(GRAPH + '/' + tok + '/media?fields=' +
-      encodeURIComponent('id,caption,media_type,timestamp,like_count,comments_count') +
+      encodeURIComponent('id,caption,media_type,timestamp,like_count,comments_count,media_url,thumbnail_url,permalink') +
       '&limit=10&access_token=' + encodeURIComponent(pt));
     media = mr.data || [];
   } catch (e) {}
@@ -601,14 +601,16 @@ function fetchFB_(ids) {
   var posts = [];
   try {
     var pr = metaGet_(GRAPH + '/' + ids.pageId + '/posts?fields=' +
-      encodeURIComponent('id,message,created_time,shares') +
+      encodeURIComponent('id,message,created_time,shares,full_picture,permalink_url') +
       '&limit=10&access_token=' + encodeURIComponent(ids.pageToken));
     posts = (pr.data || []).map(function (p) {
       return {
         id: p.id,
         message: (p.message || '').substring(0, 100),
         created_time: p.created_time,
-        shares: (p.shares && p.shares.count) || 0
+        shares: (p.shares && p.shares.count) || 0,
+        full_picture: p.full_picture || '',
+        permalink_url: p.permalink_url || ''
       };
     });
   } catch (e) {}
