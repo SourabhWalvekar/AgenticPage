@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Live Social Analytics — Conscious Planet</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <link rel="stylesheet" href="live.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand"><span class="logo">📡</span> Live Social Analytics</div>
+    <nav class="nav">
+      <a href="index.html">Home</a>
+      <a href="dashboard.html">TargetSetter</a>
+      <a href="reports.html">Reports</a>
+      <a href="live.html" class="active">Live</a>
+      <button id="refreshBtn" class="refresh-btn" title="Fetch the latest snapshot now">
+        <span class="refresh-ico">⟳</span><span class="refresh-txt">Refresh</span>
+      </button>
+      <span id="status" class="status status--demo">Sample</span>
+    </nav>
+  </header>
+
+  <div id="loading" class="loading">
+    <span class="spinner"></span>
+    <span class="loading-txt">Loading live analytics…</span>
+  </div>
+
+  <!-- Overlay shown while refreshing -->
+  <div id="refreshOverlay" class="refresh-overlay" hidden>
+    <div class="refresh-box">
+      <span class="spinner spinner--lg"></span>
+      <span class="refresh-msg">Fetching latest snapshot…</span>
+    </div>
+  </div>
+
+  <main id="app" class="wrap" hidden>
+    <!-- Intro -->
+    <div class="page-head">
+      <h1>Live Social Media Analytics</h1>
+      <div class="sub">
+        <span>Instagram <strong>@consciousplanet</strong> · Facebook <strong>Conscious Planet</strong></span>
+        <span id="generatedAt">Snapshot: —</span>
+        <span id="historyMeta">—</span>
+      </div>
+    </div>
+
+    <!-- KPI strip -->
+    <section class="kpis" id="kpis"></section>
+
+    <!-- Trend line charts -->
+    <div class="chart-grid">
+      <section class="card">
+        <div class="card-head"><h2>📈 Instagram Followers over time</h2><span class="meta">from history</span></div>
+        <div class="chart-box"><canvas id="igFollowersChart"></canvas></div>
+      </section>
+      <section class="card">
+        <div class="card-head"><h2>🌍 Instagram Reach over time</h2><span class="meta">daily reach</span></div>
+        <div class="chart-box"><canvas id="igReachChart"></canvas></div>
+      </section>
+      <section class="card">
+        <div class="card-head"><h2>👥 Facebook Fans over time</h2><span class="meta">from history</span></div>
+        <div class="chart-box"><canvas id="fbFansChart"></canvas></div>
+      </section>
+      <section class="card">
+        <div class="card-head"><h2>💬 IG Engagement breakdown</h2><span class="meta">latest snapshot</span></div>
+        <div class="chart-box"><canvas id="engagementChart"></canvas></div>
+      </section>
+    </div>
+
+    <!-- Recent posts bar charts -->
+    <div class="chart-grid">
+      <section class="card">
+        <div class="card-head"><h2>❤️ IG Recent posts — Likes</h2><span class="meta">last 10 media</span></div>
+        <div class="chart-box"><canvas id="igLikesChart"></canvas></div>
+      </section>
+      <section class="card">
+        <div class="card-head"><h2>🔁 FB Recent posts — Shares</h2><span class="meta">last 10 posts</span></div>
+        <div class="chart-box"><canvas id="fbSharesChart"></canvas></div>
+      </section>
+    </div>
+
+    <!-- Snapshot table -->
+    <section class="card">
+      <div class="card-head"><h3>Latest snapshot</h3><span class="meta">current numbers</span></div>
+      <div class="table-scroll">
+        <table class="data-table">
+          <thead><tr><th>Platform</th><th>Metric</th><th style="text-align:right">Value</th></tr></thead>
+          <tbody id="snapshotBody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Recent posts tables -->
+    <div class="tables-grid">
+      <section class="card">
+        <div class="card-head"><h3>Instagram — recent media</h3></div>
+        <div class="table-scroll">
+          <table class="data-table">
+            <thead><tr><th>Date</th><th>Type</th><th>Caption</th><th style="text-align:right">Likes</th><th style="text-align:right">Comments</th></tr></thead>
+            <tbody id="igPostsBody"></tbody>
+          </table>
+        </div>
+      </section>
+      <section class="card">
+        <div class="card-head"><h3>Facebook — recent posts</h3></div>
+        <div class="table-scroll">
+          <table class="data-table">
+            <thead><tr><th>Date</th><th>Message</th><th style="text-align:right">Shares</th></tr></thead>
+            <tbody id="fbPostsBody"></tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <script src="live-config.js"></script>
+  <script src="live.js"></script>
+</body>
+</html>
