@@ -81,7 +81,10 @@
         media_type: types[i],
         timestamp: new Date(Date.now() - i * 22 * 3600 * 1000).toISOString(),
         like_count: 600 + Math.round(Math.random() * 2400),
-        comments_count: 3 + Math.round(Math.random() * 60)
+        comments_count: 3 + Math.round(Math.random() * 60),
+        media_url: `https://upload.wikimedia.org/wikipedia/commons/8/89/Portrait_Placeholder.png`,
+        thumbnail_url: `https://placeholdpicsum.dev/600x400/4f46e5/ffffff`,
+        permalink: `https://www.instagram.com/p/demo${i}/`
       });
     }
 
@@ -102,7 +105,9 @@
         id: "post_" + (2000 + i),
         message: fbMessages[i],
         created_time: new Date(Date.now() - i * 26 * 3600 * 1000).toISOString(),
-        shares: 4 + Math.round(Math.random() * 80)
+        shares: 4 + Math.round(Math.random() * 80),
+        full_picture: `https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEg_b_KqAE6GFvYneYGHCZZ_-mvRKA6OacadLXH-DAFDt_ruh80RRVaYUREqxuVdONnRgW-zmKW1zJSyhmpivTExoDrK4n20ogLyGG5QtndKhBlsMC7pZbiUjWpQ4G9_-enyWN-0pYdGVdw/s1600/7998802501_f4633002de_b.jpg`,
+        permalink_url: `https://www.facebook.com/consciousplanet/posts/demo${i}`
       });
     }
 
@@ -318,10 +323,16 @@
 
   function renderIgPostsTable(media) {
     const body = $("igPostsBody");
-    if (!media || !media.length) { body.innerHTML = `<tr><td colspan="4" class="empty">No recent media.</td></tr>`; return; }
+    if (!media || !media.length) { body.innerHTML = `<tr><td colspan="6" class="empty">No recent media.</td></tr>`; return; }
     body.innerHTML = media.map((m) => {
       const cap = (m.caption || "").length > 70 ? m.caption.slice(0, 70) + "…" : (m.caption || "—");
+      const thumbUrl = m.thumbnail_url || m.media_url || '';
+      const permalink = m.permalink || '';
+      const thumbHtml = thumbUrl 
+        ? `<a href="${permalink}" target="_blank" rel="noopener"><img src="${thumbUrl}" alt="Post thumbnail" class="post-thumb" /></a>`
+        : '—';
       return `<tr>
+        <td class="thumb-cell">${thumbHtml}</td>
         <td>${fmtDate(m.timestamp)}</td>
         <td><span class="tag tag--type">${m.media_type || "—"}</span></td>
         <td class="cap">${cap}</td>
@@ -333,10 +344,16 @@
 
   function renderFbPostsTable(posts) {
     const body = $("fbPostsBody");
-    if (!posts || !posts.length) { body.innerHTML = `<tr><td colspan="3" class="empty">No recent posts.</td></tr>`; return; }
+    if (!posts || !posts.length) { body.innerHTML = `<tr><td colspan="4" class="empty">No recent posts.</td></tr>`; return; }
     body.innerHTML = posts.map((p) => {
       const msg = (p.message || "").length > 80 ? p.message.slice(0, 80) + "…" : (p.message || "—");
+      const thumbUrl = p.full_picture || '';
+      const permalink = p.permalink_url || '';
+      const thumbHtml = thumbUrl 
+        ? `<a href="${permalink}" target="_blank" rel="noopener"><img src="${thumbUrl}" alt="Post thumbnail" class="post-thumb" /></a>`
+        : '—';
       return `<tr>
+        <td class="thumb-cell">${thumbHtml}</td>
         <td>${fmtDate(p.created_time)}</td>
         <td class="cap">${msg}</td>
         <td class="mono">${fmtFull(p.shares)}</td>
