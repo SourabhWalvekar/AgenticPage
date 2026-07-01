@@ -46,6 +46,9 @@ function doGet(e) {
   if (mode === 'reports') {
     return getReports();
   }
+  if (mode === 'live') {
+    return getLive();
+  }
   return json(readData());
 }
 
@@ -455,4 +458,206 @@ function getReports() {
     return json({ error: String(err) });
   }
   return json({ generatedAt: new Date().toISOString(), brands: data });
+}
+
+/* ======================================================================
+ *  LIVE ANALYTICS  (Meta Graph API — Instagram + Facebook)
+ * ======================================================================
+ *  Adds a ?mode=live route that fetches a fresh snapshot from the Meta
+ *  Graph API (v25.0), appends one history row per platform to the
+ *  "IG Analytics" and "FB Analytics" tabs of the TargetSetter sheet, and
+ *  returns { generatedAt, instagram, facebook, history }.
+ *
+ *  SETUP (one time):
+ *    1. Get a long-lived Page access token from the Graph API Explorer for
+ *       the connected Meta account (Instagram @consciousplanet /
+ *       Facebook "Conscious Planet").
+ *    2. In the Apps Script editor: Project Settings ▸ Script Properties ▸
+ *       add a property named  META_ACCESS_TOKEN  with that token as value.
+ *    3. Deploy ▸ Manage deployments ▸ edit the EXISTING deployment ▸
+ *       New version ▸ Deploy (keeps the same /exec URL).
+ *
+ *  TOKEN EXPIRY: the token expires (~60 days). When the Live page shows an
+ *  error, regenerate the token and update the META_ACCESS_TOKEN property.
+ *
+ *  OPTIONAL: add a time-driven trigger on getLive (Triggers ▸ Add Trigger ▸
+ *  getLive ▸ Time-driven ▸ Hour timer ▸ Every hour) to build history even
+ *  when nobody opens the page.
+ * ====================================================================== */
+
+var GRAPH = 'https://graph.facebook.com/v25.0';
+
+/** Reads the Meta token from Script Properties. */
+function metaToken_() {
+  var t = PropertiesService.getScriptProperties().getProperty('META_ACCESS_TOKEN');
+  if (!t) throw new Error('Set META_ACCESS_TOKEN in Script Properties');
+  return t;
+}
+
+/** Generic Graph API GET wrapper — throws on non-2xx responses. */
+function metaGet_(url) {
+  var r = UrlFetchApp.fetch(url, { muteHttpExceptions: true });
+  if (r.getResponseCode() < 200 || r.getResponseCode() >= 300) {
+    throw new Error('HTTP ' + r.getResponseCode() + ': ' + r.getContentText());
+  }
+  return JSON.parse(r.getContentText());
+}
+
+/** Resolves the Page token, Page ID and IG Business Account ID from /me/accounts. */
+function metaIds_() {
+  var d = metaGet_(GRAPH + '/me/accounts?fields=' +
+    encodeURIComponent('id,name,access_token,instagram_business_account') +
+    '&access_token=' + encodeURIComponent(metaToken_()));
+  var p = d.data && d.data[0];
+  if (!p) throw new Error('No pages');
+  return {
+    pageToken: p.access_token,
+    pageId: p.id,
+    igId: (p.instagram_business_account || {}).id || '',
+    pageName: p.name
+  };
+}
+
+/**
+ * Orchestrator for ?mode=live. Fetches a fresh snapshot, appends to the two
+ * history tabs, and returns snapshot + accumulated history as JSON.
+ */
+function getLive() {
+  try {
+    var ids = metaIds_();
+    var ts = new Date();
+    var ig = fetchIG_(ids);
+    var fb = fetchFB_(ids);
+    appendHistory_('IG Analytics', igHeaders_(), igRow_(ts, ig));
+    appendHistory_('FB Analytics', fbHeaders_(), fbRow_(ts, fb));
+    return json({
+      generatedAt: ts.toISOString(),
+      instagram: ig,
+      facebook: fb,
+      history: {
+        instagram: readHistory_('IG Analytics'),
+        facebook: readHistory_('FB Analytics')
+      }
+    });
+  } catch (err) {
+    return json({ error: String(err) });
+  }
+}
+
+/** Fetches IG account info, daily insights, engagement (total_value) and recent media. */
+function fetchIG_(ids) {
+  if (!ids.igId) return null;
+  var tok = ids.igId, pt = ids.pageToken;
+
+  var acct = metaGet_(GRAPH + '/' + tok + '?fields=' +
+    encodeURIComponent('username,followers_count,follows_count,media_count') +
+    '&access_token=' + encodeURIComponent(pt));
+
+  var until = new Date(); until.setDate(until.getDate() - 1);
+  var since = new Date(); since.setDate(since.getDate() - 2);
+  var s = Utilities.formatDate(since, 'UTC', 'yyyy-MM-dd');
+  var u = Utilities.formatDate(until, 'UTC', 'yyyy-MM-dd');
+
+  // Daily insights: reach + follower_count
+  var daily = {};
+  try {
+    var dr = metaGet_(GRAPH + '/' + tok + '/insights?metric=reach,follower_count&period=day&since=' +
+      s + '&until=' + u + '&access_token=' + encodeURIComponent(pt));
+    (dr.data || []).forEach(function (i) {
+      daily[i.name] = (i.values && i.values[0] && i.values[0].value) || 0;
+    });
+  } catch (e) {}
+
+  // Engagement breakdown via total_value
+  var tv = {};
+  try {
+    var tr = metaGet_(GRAPH + '/' + tok + '/insights?metric=' +
+      encodeURIComponent('profile_views,accounts_engaged,total_interactions,likes,comments,shares,saves,views') +
+      '&period=day&metric_type=total_value&since=' + s + '&until=' + u +
+      '&access_token=' + encodeURIComponent(pt));
+    (tr.data || []).forEach(function (i) {
+      tv[i.name] = (i.total_value && i.total_value.value) || 0;
+    });
+  } catch (e) {}
+
+  // Recent media (last 10)
+  var media = [];
+  try {
+    var mr = metaGet_(GRAPH + '/' + tok + '/media?fields=' +
+      encodeURIComponent('id,caption,media_type,timestamp,like_count,comments_count') +
+      '&limit=10&access_token=' + encodeURIComponent(pt));
+    media = mr.data || [];
+  } catch (e) {}
+
+  return { account: acct, daily: daily, engagement: tv, recentMedia: media };
+}
+
+/** Fetches FB page info and recent posts. */
+function fetchFB_(ids) {
+  var page = metaGet_(GRAPH + '/' + ids.pageId + '?fields=' +
+    encodeURIComponent('name,fan_count,followers_count,talking_about_count,were_here_count') +
+    '&access_token=' + encodeURIComponent(ids.pageToken));
+
+  var posts = [];
+  try {
+    var pr = metaGet_(GRAPH + '/' + ids.pageId + '/posts?fields=' +
+      encodeURIComponent('id,message,created_time,shares') +
+      '&limit=10&access_token=' + encodeURIComponent(ids.pageToken));
+    posts = (pr.data || []).map(function (p) {
+      return {
+        id: p.id,
+        message: (p.message || '').substring(0, 100),
+        created_time: p.created_time,
+        shares: (p.shares && p.shares.count) || 0
+      };
+    });
+  } catch (e) {}
+
+  return { page: page, recentPosts: posts };
+}
+
+/* ---- history tabs ---- */
+
+function igHeaders_() {
+  return ['Timestamp', 'Username', 'Followers', 'Following', 'Media',
+    'Reach', 'FollowerChange', 'ProfileViews', 'AccountsEngaged', 'TotalInteractions',
+    'Likes', 'Comments', 'Shares', 'Saves', 'Views'];
+}
+
+function igRow_(ts, ig) {
+  var a = (ig && ig.account) || {}, d = (ig && ig.daily) || {}, t = (ig && ig.engagement) || {};
+  return [ts, a.username || '', a.followers_count || 0, a.follows_count || 0, a.media_count || 0,
+    d.reach || 0, d.follower_count || 0, t.profile_views || 0, t.accounts_engaged || 0,
+    t.total_interactions || 0, t.likes || 0, t.comments || 0, t.shares || 0, t.saves || 0, t.views || 0];
+}
+
+function fbHeaders_() {
+  return ['Timestamp', 'Page', 'Fans', 'Followers', 'TalkingAbout', 'WereHere'];
+}
+
+function fbRow_(ts, fb) {
+  var p = (fb && fb.page) || {};
+  return [ts, p.name || '', p.fan_count || 0, p.followers_count || 0,
+    p.talking_about_count || 0, p.were_here_count || 0];
+}
+
+/** Appends a row to a history tab, creating it (with bold frozen header) if missing. */
+function appendHistory_(tab, headers, row) {
+  var ss = getTargetSetterSpreadsheet();
+  var sh = ss.getSheetByName(tab) || ss.insertSheet(tab);
+  if (sh.getLastRow() === 0) {
+    sh.appendRow(headers);
+    sh.getRange(1, 1, 1, headers.length).setFontWeight('bold');
+    sh.setFrozenRows(1);
+  }
+  sh.appendRow(row);
+}
+
+/** Reads a history tab into { headers, rows }. */
+function readHistory_(tab) {
+  var ss = getTargetSetterSpreadsheet();
+  var sh = ss.getSheetByName(tab);
+  if (!sh || sh.getLastRow() < 2) return { headers: [], rows: [] };
+  var v = sh.getDataRange().getValues();
+  return { headers: v[0], rows: v.slice(1) };
 }
