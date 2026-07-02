@@ -706,13 +706,68 @@ function getPosts(e) {
       pageCount++;
     }
 
+    out = out.slice(0, limit);
+
+    // Enrich the most recent posts with follower/non-follower reach split and
+    // (for reels) average watch time. Capped to respect the 200 req/hr limit.
+    enrichPostInsights_(out, pt, 30);
+
     return json({
       generatedAt: new Date().toISOString(),
       page: { id: ids.igId, name: ids.pageName || '', username: '' },
-      posts: out.slice(0, limit)
+      posts: out
     });
   } catch (err) {
     return json({ error: String(err) });
+  }
+}
+
+/**
+ * Best-effort per-media enrichment (only for the first `cap` posts):
+ *   - follower vs non-follower reach split (reach breakdown by follow_type)
+ *   - reels: average watch time in seconds (ig_reels_avg_watch_time, ms -> s)
+ *
+ * NOTE on the "% who stayed till 3 seconds": Instagram's app shows a Skip Rate /
+ * retention chart, but the Graph API does NOT expose that number. Only average
+ * watch time is available, so `retention3s` is left null for live data; the UI
+ * hides that row unless the value is present.
+ *
+ * NOTE on cross-posting (viewsFb / crossPosted): the Graph API has no native
+ * link between an IG media and its Facebook copy. These stay 0/false for live
+ * data until a caption+timestamp matching pass against FB video posts is added.
+ */
+function enrichPostInsights_(posts, token, cap) {
+  var n = Math.min(posts.length, cap || 30);
+  for (var i = 0; i < n; i++) {
+    var p = posts[i];
+    // ---- follower / non-follower reach split ----
+    try {
+      var u = GRAPH + '/' + p.id + '/insights?metric=reach&breakdown=follow_type' +
+        '&metric_type=total_value&access_token=' + encodeURIComponent(token);
+      var res = metaGet_(u);
+      var d = res.data && res.data[0];
+      var results = d && d.total_value && d.total_value.breakdowns &&
+        d.total_value.breakdowns[0] && d.total_value.breakdowns[0].results;
+      if (results && results.length) {
+        results.forEach(function (row) {
+          var dim = (row.dimension_values && row.dimension_values[0] || '').toUpperCase();
+          var val = Number(row.value) || 0;
+          if (dim === 'FOLLOWER') p.followerReach = val;
+          else if (dim === 'NON_FOLLOWER') p.nonFollowerReach = val;
+        });
+      }
+    } catch (e) { /* breakdown unavailable (e.g. <100 followers) — leave 0 */ }
+
+    // ---- reels: average watch time (seconds) ----
+    if (p.type === 'REEL') {
+      try {
+        var u2 = GRAPH + '/' + p.id + '/insights?metric=ig_reels_avg_watch_time' +
+          '&access_token=' + encodeURIComponent(token);
+        var res2 = metaGet_(u2);
+        var v = res2.data && res2.data[0] && res2.data[0].values && res2.data[0].values[0];
+        if (v && v.value != null) p.avgWatchTime = Math.round((Number(v.value) / 1000) * 10) / 10;
+      } catch (e2) { /* metric unavailable — leave undefined */ }
+    }
   }
 }
 
@@ -755,8 +810,15 @@ function mapPost_(m, selfIgId) {
     comments: Number(m.comments_count) || 0,
     reach: Number(ins.reach) || 0,
     views: Number(ins.views) || 0,
+    viewsIg: Number(ins.views) || 0,   // IG views; combined with viewsFb on the client
+    viewsFb: 0,                        // filled only when a FB cross-post is matched
+    crossPosted: false,                // see enrichPostInsights_ note
     shares: Number(ins.shares) || 0,
     saves: Number(ins.saved) || 0,
+    followerReach: 0,                  // filled by enrichPostInsights_
+    nonFollowerReach: 0,               // filled by enrichPostInsights_
+    retention3s: null,                 // not exposed by the Graph API (app-only)
+    avgWatchTime: null,                // reels only; filled by enrichPostInsights_
     interactions: Number(ins.total_interactions) || 0
   };
 }

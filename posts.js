@@ -24,10 +24,10 @@
     removed: new Set(),   // ids removed by the user
     type: "ALL",
     search: "",
-    sort: "date",
+    sort: "views",        // default sort: views
     order: "desc",
-    count: 30,
-    range: null,          // { start: Date, end: Date } or null = all-time
+    count: 0,             // default: show All
+    range: null,          // { start: Date, end: Date } or null = all-time (set to last-week on load)
     page: { name: "Conscious Planet", logo: "" },
   };
 
@@ -76,12 +76,25 @@
 
       const reach = rand(8000, 120000);
       const isReel = type === "REEL";
-      const views = isReel ? rand(reach, reach * 6) : rand(Math.round(reach * 0.3), reach);
+      const viewsIg = isReel ? rand(reach, reach * 6) : rand(Math.round(reach * 0.3), reach);
       const likes = rand(400, Math.max(600, Math.round(reach * 0.08)));
       const comments = rand(5, 220);
       const shares = rand(20, 900);
       const saves = rand(30, 1500);
       const interactions = likes + comments + shares + saves;
+
+      // Cross-posting: some posts (reels/creatives) are also published to Facebook.
+      const crossPosted = (i % 3 === 0);
+      const viewsFb = crossPosted ? rand(Math.round(viewsIg * 0.2), Math.round(viewsIg * 1.1)) : 0;
+      const views = viewsIg + viewsFb; // combined views when cross-posted
+
+      // Follower vs non-follower reach split.
+      const followerPct = rand(35, 80) / 100;
+      const followerReach = Math.round(reach * followerPct);
+      const nonFollowerReach = reach - followerReach;
+
+      // Reel 3-second retention (% of viewers who stayed at least 3s). Reels only.
+      const retention3s = isReel ? rand(55, 95) : null;
 
       // Mix of singular + collab (initiated by us / by others) for demo.
       const collab = (i % 5 === 0) ? "COLLAB_US" : (i % 7 === 0 ? "COLLAB_OTHER" : "SINGULAR");
@@ -93,12 +106,14 @@
         type: type,
         collab: collab,
         collabWith: collabWith,
+        crossPosted: crossPosted,
         mediaType: type === "CAROUSEL" ? "CAROUSEL_ALBUM" : (isReel ? "VIDEO" : "IMAGE"),
         productType: isReel ? "REELS" : "FEED",
         timestamp: ts,
         thumbnail: `https://media.istockphoto.com/id/1980276924/vector/no-photo-thumbnail-graphic-element-no-found-or-available-image-in-the-gallery-or-album-flat.jpg?s=612x612&w=0&k=20&c=ZBE3NqfzIeHGDPkyvulUw14SaWfDj2rZtyiKv3toItk=`,
         permalink: `https://www.instagram.com/p/sample${i}/`,
-        likes, comments, shares, saves, reach, views, interactions,
+        likes, comments, shares, saves, reach, views, viewsIg, viewsFb, interactions,
+        followerReach, nonFollowerReach, retention3s,
       });
     }
     return posts;
@@ -159,6 +174,8 @@
     comments: `<path fill="currentColor" d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/>`,
     shares: `<path fill="currentColor" d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92s2.92-1.31 2.92-2.92-1.31-2.92-2.92-2.92z"/>`,
     saves: `<path fill="currentColor" d="M17 3H7c-1.1 0-1.99.9-1.99 2L5 21l7-3 7 3V5c0-1.1-.9-2-2-2z"/>`,
+    crosspost: `<path fill="currentColor" d="M7.41 18.59L8.83 20 12 16.83 15.17 20l1.42-1.41L12 14l-4.59 4.59zM16.59 5.41L15.17 4 12 7.17 8.83 4 7.41 5.41 12 10l4.59-4.59z"/><path fill="currentColor" d="M4 11h16v2H4z"/>`,
+    timer: `<path fill="currentColor" d="M15 1H9v2h6V1zm-4 13h2V8h-2v6zm8.03-6.61l1.42-1.42c-.43-.51-.9-.99-1.41-1.41l-1.42 1.42C16.07 4.74 14.12 4 12 4c-4.97 0-9 4.03-9 9s4.02 9 9 9 9-4.03 9-9c0-2.12-.74-4.07-1.97-5.61zM12 20c-3.87 0-7-3.13-7-7s3.13-7 7-7 7 3.13 7 7-3.13 7-7 7z"/>`,
   };
 
   /* type icon (monochrome, no text label) */
@@ -253,12 +270,17 @@
       : `<div class="no-img">${phIco}</div>`;
     const collabTitle = cm.label + (p.collabWith && p.collabWith.length ? ` (with @${escapeHtml(p.collabWith.join(", @"))})` : "");
 
+    const crossChip = p.crossPosted
+      ? `<span class="tag-ico tag-ico--cross" title="Cross-posted to Facebook & Instagram">${svg(P.crosspost)}</span>`
+      : "";
+
     return `<article class="tile" data-id="${p.id}">
       <div class="tile-media">
         ${img}
         <span class="tile-tags">
           <span class="tag-ico" title="${tm.label}">${tm.ico}</span>
           <span class="tag-ico ${p.collab === "SINGULAR" ? "" : "tag-ico--collab"}" title="${collabTitle}">${cm.ico}</span>
+          ${crossChip}
         </span>
         <button class="tile-remove" data-remove="${p.id}" title="Remove this post">✕</button>
       </div>
@@ -270,18 +292,67 @@
         </div>
         ${cap}
         <div class="tile-metrics">
-          ${metricHtml(P.views, "Views", p.views)}
+          ${viewsMetricHtml(p)}
           ${metricHtml(P.reach, "Reach", p.reach)}
           ${metricHtml(P.likes, "Likes", p.likes)}
           ${metricHtml(P.comments, "Comments", p.comments)}
           ${metricHtml(P.shares, "Shares", p.shares)}
           ${metricHtml(P.saves, "Saves", p.saves)}
         </div>
+        ${insightsHtml(p)}
       </div>
       <div class="tile-foot">
         <a class="tile-link" href="${p.permalink || "#"}" target="_blank" rel="noopener">View on Instagram ↗</a>
       </div>
     </article>`;
+  }
+
+  /* Views metric — combined IG+FB when cross-posted, with a hover breakdown. */
+  function viewsMetricHtml(p) {
+    const cross = p.crossPosted && p.viewsFb > 0;
+    const pop = cross
+      ? `<span class="metric-pop">
+           <span class="mp-row"><span class="mp-dot mp-dot--ig"></span>Instagram <b>${fmtFull(p.viewsIg)}</b></span>
+           <span class="mp-row"><span class="mp-dot mp-dot--fb"></span>Facebook <b>${fmtFull(p.viewsFb)}</b></span>
+           <span class="mp-row mp-total">Combined <b>${fmtFull(p.views)}</b></span>
+         </span>`
+      : `<span class="metric-pop"><span class="mp-row"><span class="mp-dot mp-dot--ig"></span>Instagram <b>${fmtFull(p.viewsIg != null ? p.viewsIg : p.views)}</b></span></span>`;
+    return `<span class="metric metric--views" title="">
+      ${svg(P.views, "m-ico")}<span class="m-val">${fmtCompact(p.views)}</span>${cross ? svg(P.crosspost, "m-cross") : ""}
+      ${pop}
+    </span>`;
+  }
+
+  /* Follower/non-follower reach split + (reels) 3-second retention. */
+  function insightsHtml(p) {
+    const rows = [];
+    const fr = Number(p.followerReach) || 0;
+    const nfr = Number(p.nonFollowerReach) || 0;
+    const tot = fr + nfr;
+    if (tot > 0) {
+      const fpct = Math.round((fr / tot) * 100);
+      rows.push(`<div class="insight">
+        <div class="insight-top">
+          ${svg(P.person, "i-ico")}<span class="i-lbl">Followers vs non-followers</span>
+          <span class="i-val">${fpct}% / ${100 - fpct}%</span>
+        </div>
+        <div class="split-bar" title="Followers ${fmtFull(fr)} · Non-followers ${fmtFull(nfr)}">
+          <span class="split-foll" style="width:${fpct}%"></span>
+        </div>
+      </div>`);
+    }
+    if (p.type === "REEL" && p.retention3s != null) {
+      rows.push(`<div class="insight insight--inline">
+        ${svg(P.timer, "i-ico")}<span class="i-lbl">Watched ≥ 3s</span>
+        <span class="i-val">${p.retention3s}%</span>
+      </div>`);
+    } else if (p.type === "REEL" && p.avgWatchTime != null) {
+      rows.push(`<div class="insight insight--inline">
+        ${svg(P.timer, "i-ico")}<span class="i-lbl">Avg. watch time</span>
+        <span class="i-val">${p.avgWatchTime}s</span>
+      </div>`);
+    }
+    return rows.length ? `<div class="tile-insights">${rows.join("")}</div>` : "";
   }
 
   function escapeHtml(s) {
@@ -582,19 +653,20 @@
     function resetFilters() {
       state.type = "ALL";
       state.search = "";
-      state.sort = "date";
+      state.sort = "views";
       state.order = "desc";
-      state.count = 30;
-      state.range = null;
+      state.count = 0;
       state.removed.clear();
-      picker.draftStart = null; picker.draftEnd = null; picker.activePreset = "maximum";
+      const r = presetRange("last7");
+      state.range = r ? { start: r.start, end: r.end } : null;
+      picker.draftStart = r ? r.start : null; picker.draftEnd = r ? r.end : null; picker.activePreset = "last7";
       $("searchInput").value = ""; $("searchClear").hidden = true;
-      $("sortSelect").value = "date";
-      $("countSelect").value = "30";
+      $("sortSelect").value = "views";
+      $("countSelect").value = "0";
       $("orderBtn").dataset.order = "desc";
       $("orderIco").textContent = "▼"; $("orderTxt").textContent = "Desc";
       $("typeSelect").value = "ALL";
-      setDateLabel("maximum", null);
+      setDateLabel("last7", state.range);
       render();
     }
     $("resetBtn").addEventListener("click", resetFilters);
@@ -639,6 +711,7 @@
       type: p.type || "CREATIVE",
       collab: p.collab || "SINGULAR",
       collabWith: Array.isArray(p.collabWith) ? p.collabWith : [],
+      crossPosted: !!p.crossPosted,
       mediaType: p.mediaType || "",
       productType: p.productType || "",
       timestamp: p.timestamp || "",
@@ -650,6 +723,12 @@
       saves: Number(p.saves) || 0,
       reach: Number(p.reach) || 0,
       views: Number(p.views) || 0,
+      viewsIg: p.viewsIg != null ? Number(p.viewsIg) : (Number(p.views) || 0),
+      viewsFb: Number(p.viewsFb) || 0,
+      followerReach: Number(p.followerReach) || 0,
+      nonFollowerReach: Number(p.nonFollowerReach) || 0,
+      retention3s: p.retention3s != null ? Number(p.retention3s) : null,
+      avgWatchTime: p.avgWatchTime != null ? Number(p.avgWatchTime) : null,
       interactions: Number(p.interactions) || 0,
     }));
     state.removed.clear();
@@ -667,9 +746,16 @@
     applyData(res);
     $("loading").hidden = true;
     $("app").hidden = false;
-    // default: Maximum (all-time) so every fetched post shows first
-    setDateLabel("maximum", null);
-    picker.activePreset = "maximum";
+    // default date range: Last 7 days
+    const r = presetRange("last7");
+    state.range = r ? { start: r.start, end: r.end } : null;
+    picker.activePreset = "last7";
+    picker.draftStart = r ? r.start : null;
+    picker.draftEnd = r ? r.end : null;
+    setDateLabel("last7", state.range);
+    // reflect other defaults in the controls
+    $("sortSelect").value = state.sort;
+    $("countSelect").value = String(state.count);
     render();
   }
 

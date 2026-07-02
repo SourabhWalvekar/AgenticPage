@@ -238,11 +238,46 @@ body {
 .tile-date { font-size: 11px; font-weight: 600; color: var(--muted); }
 
 /* metrics grid */
-.tile-metrics { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px 6px; margin-top: auto; padding-top: 10px; border-top: 1px solid #f1f5f9; }
-.metric { display: flex; align-items: center; gap: 5px; font-size: 12px; }
+.tile-metrics { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px 6px; padding-top: 10px; border-top: 1px solid #f1f5f9; }
+.metric { display: flex; align-items: center; gap: 5px; font-size: 12px; position: relative; }
 .metric .m-ico { width: 15px; height: 15px; color: #94a3b8; }
 .metric .m-val { font-weight: 700; font-variant-numeric: tabular-nums; }
 .metric[title] { cursor: default; }
+
+/* cross-post marker on the Views metric */
+.metric--views { cursor: help; }
+.metric .m-cross { width: 12px; height: 12px; color: #94a3b8; margin-left: 1px; }
+
+/* Views hover breakdown popover (IG / FB / combined) */
+.metric-pop {
+  position: absolute; bottom: calc(100% + 8px); left: 50%; transform: translateX(-50%) translateY(4px);
+  background: #0f172a; color: #fff; border-radius: 8px; padding: 8px 10px; min-width: 150px; z-index: 6;
+  box-shadow: 0 8px 24px rgba(15,23,42,.28);
+  opacity: 0; visibility: hidden; transition: opacity .14s, transform .14s; pointer-events: none;
+}
+.metric-pop::after { content: ""; position: absolute; top: 100%; left: 50%; transform: translateX(-50%); border: 6px solid transparent; border-top-color: #0f172a; }
+.metric--views:hover .metric-pop { opacity: 1; visibility: visible; transform: translateX(-50%) translateY(0); }
+.mp-row { display: flex; align-items: center; gap: 7px; font-size: 12px; font-weight: 500; padding: 2px 0; white-space: nowrap; }
+.mp-row b { margin-left: auto; font-weight: 700; font-variant-numeric: tabular-nums; }
+.mp-total { border-top: 1px solid rgba(255,255,255,.18); margin-top: 4px; padding-top: 5px; }
+.mp-dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+.mp-dot--ig { background: #d1306f; }
+.mp-dot--fb { background: #1877f2; }
+
+/* cross-post chip on the media */
+.tag-ico--cross .pico { color: #475569; }
+
+/* ===== Per-tile insights (follower split + reel retention) ===== */
+.tile-insights { display: flex; flex-direction: column; gap: 8px; margin-top: auto; padding-top: 10px; border-top: 1px solid #f1f5f9; }
+.insight { display: flex; flex-direction: column; gap: 5px; }
+.insight-top { display: flex; align-items: center; gap: 6px; font-size: 11px; }
+.insight .i-ico { width: 14px; height: 14px; color: #94a3b8; flex: none; }
+.insight .i-lbl { color: var(--muted); font-weight: 600; }
+.insight .i-val { margin-left: auto; font-weight: 700; color: var(--text); font-variant-numeric: tabular-nums; }
+.split-bar { height: 6px; border-radius: 999px; background: #e2e8f0; overflow: hidden; }
+.split-foll { display: block; height: 100%; background: var(--brand); border-radius: 999px; }
+.insight--inline { flex-direction: row; align-items: center; gap: 6px; font-size: 11px; }
+.insight--inline .i-lbl { color: var(--muted); font-weight: 600; }
 
 .tile-foot { padding: 0 14px 14px; }
 .tile-link { font-size: 12px; font-weight: 600; color: var(--brand); text-decoration: none; }
