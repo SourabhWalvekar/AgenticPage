@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Post Analytics — Conscious Planet</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="posts.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand"><span class="logo">🗂️</span> Post Analytics</div>
+    <nav class="nav">
+      <a href="index.html">Home</a>
+      <a href="dashboard.html">TargetSetter</a>
+      <a href="reports.html">Reports</a>
+      <a href="live.html">Live</a>
+      <a href="posts.html" class="active">Posts</a>
+      <button id="refreshBtn" class="refresh-btn" title="Fetch the latest posts now">
+        <span class="refresh-ico">⟳</span><span class="refresh-txt">Refresh</span>
+      </button>
+      <span id="status" class="status status--demo">Sample</span>
+    </nav>
+  </header>
+
+  <div id="loading" class="loading">
+    <span class="spinner"></span>
+    <span class="loading-txt">Loading posts…</span>
+  </div>
+
+  <!-- Overlay shown while refreshing -->
+  <div id="refreshOverlay" class="refresh-overlay" hidden>
+    <div class="refresh-box">
+      <span class="spinner spinner--lg"></span>
+      <span class="refresh-msg">Fetching latest posts…</span>
+    </div>
+  </div>
+
+  <main id="app" class="wrap" hidden>
+    <!-- Intro -->
+    <div class="page-head">
+      <h1>Post Analytics</h1>
+      <div class="sub">
+        <span id="pageMeta">Instagram <strong>@consciousplanet</strong></span>
+        <span id="generatedAt">Snapshot: —</span>
+      </div>
+    </div>
+
+    <!-- Controls -->
+    <section class="controls card">
+      <!-- Row 1: page + type filter -->
+      <div class="controls-row">
+        <div class="ctrl">
+          <label for="pageSelect">Page</label>
+          <select id="pageSelect"></select>
+        </div>
+
+        <div class="ctrl ctrl--grow">
+          <label>Type</label>
+          <div id="typeFilter" class="segmented" role="tablist">
+            <button class="seg active" data-type="ALL">All</button>
+            <button class="seg" data-type="CAROUSEL">🎠 Carousel</button>
+            <button class="seg" data-type="REEL">🎬 Reel</button>
+            <button class="seg" data-type="CREATIVE">🖼️ Creative</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Row 2: date range + search + sort + count -->
+      <div class="controls-row">
+        <div class="ctrl date-ctrl">
+          <label>Date range</label>
+          <button id="dateBtn" class="date-btn" type="button">
+            <span class="date-ico">📅</span>
+            <span id="dateLabel">Last 30 days</span>
+            <span class="date-caret">▾</span>
+          </button>
+
+          <!-- Meta-style date range popover -->
+          <div id="datePop" class="date-pop" hidden>
+            <div class="date-pop-body">
+              <ul id="presetList" class="preset-list">
+                <li data-preset="today">Today</li>
+                <li data-preset="yesterday">Yesterday</li>
+                <li data-preset="last7">Last 7 days</li>
+                <li data-preset="last14">Last 14 days</li>
+                <li data-preset="last28">Last 28 days</li>
+                <li data-preset="last30" class="active">Last 30 days</li>
+                <li data-preset="last90">Last 90 days</li>
+                <li data-preset="thismonth">This month</li>
+                <li data-preset="lastmonth">Last month</li>
+                <li data-preset="maximum">Maximum</li>
+                <li data-preset="custom">Custom</li>
+              </ul>
+              <div class="cal-wrap">
+                <div class="cal-months">
+                  <div class="cal" id="calLeft"></div>
+                  <div class="cal" id="calRight"></div>
+                </div>
+                <div class="cal-foot">
+                  <span id="rangePreview" class="range-preview">—</span>
+                  <div class="cal-actions">
+                    <button id="dateCancel" class="btn-ghost" type="button">Cancel</button>
+                    <button id="dateApply" class="btn-solid" type="button">Apply</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="ctrl ctrl--search">
+          <label for="searchInput">Search</label>
+          <div class="search-box">
+            <span class="search-ico">🔍</span>
+            <input id="searchInput" type="text" placeholder="Search captions by keyword…" autocomplete="off" />
+            <button id="searchClear" class="search-clear" hidden title="Clear">✕</button>
+          </div>
+        </div>
+
+        <div class="ctrl">
+          <label for="sortSelect">Sort by</label>
+          <select id="sortSelect">
+            <option value="date">Date</option>
+            <option value="views">Views</option>
+            <option value="reach">Reach</option>
+            <option value="likes">Likes</option>
+            <option value="comments">Comments</option>
+            <option value="shares">Shares</option>
+            <option value="saves">Saves</option>
+            <option value="interactions">Interactions</option>
+          </select>
+        </div>
+
+        <div class="ctrl">
+          <label>Order</label>
+          <button id="orderBtn" class="order-btn" type="button" data-order="desc" title="Toggle ascending / descending">
+            <span id="orderIco">▼</span> <span id="orderTxt">Desc</span>
+          </button>
+        </div>
+
+        <div class="ctrl">
+          <label for="countSelect">Show</label>
+          <select id="countSelect">
+            <option value="10">Last 10</option>
+            <option value="20">Last 20</option>
+            <option value="30" selected>Last 30</option>
+            <option value="50">Last 50</option>
+            <option value="0">All</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- active filter summary -->
+      <div class="controls-foot">
+        <span id="resultCount" class="result-count">—</span>
+        <button id="resetBtn" class="btn-ghost btn-sm" type="button">Reset filters</button>
+      </div>
+    </section>
+
+    <!-- Results -->
+    <section id="tiles" class="tiles"></section>
+    <div id="emptyState" class="empty-state" hidden>
+      <div class="empty-emoji">🗒️</div>
+      <p>No posts match your filters.</p>
+      <button class="btn-solid" id="emptyReset" type="button">Reset filters</button>
+    </div>
+  </main>
+
+  <script src="posts-config.js"></script>
+  <script src="posts.js"></script>
+</body>
+</html>

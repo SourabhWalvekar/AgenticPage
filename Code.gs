@@ -91,6 +91,9 @@ function doGet(e) {
   if (mode === 'live') {
     return getLive();
   }
+  if (mode === 'posts') {
+    return getPosts(e);
+  }
   return json(readData());
 }
 
@@ -658,6 +661,88 @@ function fetchFB_(ids) {
   } catch (e) {}
 
   return { page: page, recentPosts: posts };
+}
+
+/* ======================================================================
+ *  POST ANALYTICS  (?mode=posts)
+ * ======================================================================
+ * Returns a list of Instagram posts with per-post insights so the Post
+ * Analytics page can filter (by type / date / keyword), sort and display
+ * them as tiles.
+ *
+ * Query params (all optional):
+ *   ?limit=<n>   max posts to return (default 50, hard cap 200)
+ *   ?page=<id>   reserved for future multi-page support (ignored for now —
+ *                the default connected account is always used)
+ *
+ * Date filtering, keyword search, sort and type filtering are all done on
+ * the client so the same payload can be re-filtered without re-fetching.
+ */
+function getPosts(e) {
+  try {
+    var p = (e && e.parameter) || {};
+    var limit = Math.min(parseInt(p.limit, 10) || 50, 200);
+
+    var ids = metaIds_();
+    if (!ids.igId) return json({ error: 'No Instagram business account connected' });
+    var pt = ids.pageToken;
+
+    // Field expansion pulls per-post insights in the same call.
+    var fields = 'id,caption,media_type,media_product_type,timestamp,' +
+      'like_count,comments_count,media_url,thumbnail_url,permalink,' +
+      'insights.metric(reach,views,total_interactions,saved,shares)';
+
+    var url = GRAPH + '/' + ids.igId + '/media?fields=' + encodeURIComponent(fields) +
+      '&limit=' + Math.min(limit, 50) + '&access_token=' + encodeURIComponent(pt);
+
+    var out = [];
+    var pageCount = 0;
+    while (url && pageCount < 6 && out.length < limit) {
+      var r = metaGet_(url);
+      (r.data || []).forEach(function (m) { out.push(mapPost_(m)); });
+      url = (r.paging && r.paging.next) ? r.paging.next : null;
+      pageCount++;
+    }
+
+    return json({
+      generatedAt: new Date().toISOString(),
+      page: { id: ids.igId, name: ids.pageName || '', username: '' },
+      posts: out.slice(0, limit)
+    });
+  } catch (err) {
+    return json({ error: String(err) });
+  }
+}
+
+/** Normalizes one IG media object (with expanded insights) into a flat tile. */
+function mapPost_(m) {
+  var ins = {};
+  if (m.insights && m.insights.data) {
+    m.insights.data.forEach(function (i) {
+      ins[i.name] = (i.values && i.values[0] && i.values[0].value) || 0;
+    });
+  }
+  // Classify: REEL (product type) > CAROUSEL (album) > CREATIVE (single image/video)
+  var type = (m.media_product_type === 'REELS') ? 'REEL'
+    : (m.media_type === 'CAROUSEL_ALBUM' ? 'CAROUSEL' : 'CREATIVE');
+
+  return {
+    id: m.id,
+    caption: m.caption || '',
+    mediaType: m.media_type || '',
+    productType: m.media_product_type || '',
+    type: type,
+    timestamp: m.timestamp || '',
+    thumbnail: m.thumbnail_url || m.media_url || '',
+    permalink: m.permalink || '',
+    likes: Number(m.like_count) || 0,
+    comments: Number(m.comments_count) || 0,
+    reach: Number(ins.reach) || 0,
+    views: Number(ins.views) || 0,
+    shares: Number(ins.shares) || 0,
+    saves: Number(ins.saved) || 0,
+    interactions: Number(ins.total_interactions) || 0
+  };
 }
 
 /* ---- history tabs ---- */
