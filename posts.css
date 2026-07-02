@@ -279,9 +279,48 @@ body {
 .insight--inline { flex-direction: row; align-items: center; gap: 6px; font-size: 11px; }
 .insight--inline .i-lbl { color: var(--muted); font-weight: 600; }
 
-.tile-foot { padding: 0 14px 14px; }
-.tile-link { font-size: 12px; font-weight: 600; color: var(--brand); text-decoration: none; }
-.tile-link:hover { text-decoration: underline; }
+/* ===== Clickable tile (replaces the old "View on Instagram" link) ===== */
+.tile--clickable { cursor: pointer; }
+.tile--clickable:hover { transform: translateY(-3px); box-shadow: 0 12px 30px rgba(15,23,42,.14); border-color: #dbe2ea; }
+.tile-open {
+  position: absolute; left: 8px; bottom: 8px; z-index: 3;
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 11px; font-weight: 700; color: #fff; letter-spacing: .02em;
+  background: rgba(15,23,42,.82); padding: 4px 8px; border-radius: 999px;
+  opacity: 0; transform: translateY(4px); transition: opacity .16s, transform .16s; pointer-events: none;
+}
+.tile--clickable:hover .tile-open { opacity: 1; transform: translateY(0); }
+
+/* Custom-formula score chip in the tile header */
+.tile-score {
+  font-size: 11px; font-weight: 800; color: var(--brand);
+  background: var(--brand-soft, #eef2ff); border-radius: 6px; padding: 1px 6px;
+  font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+
+/* ===== Custom formula bar ===== */
+.formula-bar { margin-top: 12px; padding: 12px 14px; background: #f8fafc; border: 1px solid var(--border); border-radius: 10px; }
+.formula-row { display: flex; align-items: center; gap: 8px; }
+.formula-fx { font-style: italic; font-weight: 800; color: var(--brand); font-size: 15px; flex: none; }
+#formulaInput {
+  flex: 1; padding: 9px 11px; border: 1px solid var(--border); border-radius: 8px;
+  font-size: 13px; font-family: "SFMono-Regular", ui-monospace, Menlo, Consolas, monospace; color: var(--text); background: #fff;
+}
+#formulaInput:focus { outline: none; border-color: var(--brand); box-shadow: 0 0 0 3px var(--brand-soft, rgba(99,102,241,.15)); }
+.formula-help { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; margin-top: 8px; font-size: 11px; color: var(--muted); }
+.formula-status { font-weight: 700; }
+.formula-status.is-ok { color: var(--up, #16a34a); }
+.formula-status.is-err { color: var(--down, #dc2626); }
+.formula-vars code, .formula-presets .chip-btn {
+  font-family: "SFMono-Regular", ui-monospace, Menlo, Consolas, monospace; font-size: 10.5px;
+}
+.formula-vars code { background: #eef2f7; border-radius: 4px; padding: 1px 5px; color: #475569; margin: 0 1px; }
+.formula-presets { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.formula-presets .chip-btn {
+  border: 1px solid var(--border); background: #fff; color: var(--brand); font-weight: 700;
+  border-radius: 999px; padding: 3px 9px; cursor: pointer; transition: background .12s, border-color .12s;
+}
+.formula-presets .chip-btn:hover { background: var(--brand-soft, #eef2ff); border-color: var(--brand); }
 
 /* Empty state */
 .empty-state { text-align: center; padding: 60px 20px; color: var(--muted); }

@@ -712,14 +712,92 @@ function getPosts(e) {
     // (for reels) average watch time. Capped to respect the 200 req/hr limit.
     enrichPostInsights_(out, pt, 30);
 
+    // Match Instagram posts to their Facebook cross-posts (same caption + close
+    // timestamp) and fold Facebook views into the combined `views` total.
+    matchCrossPosts_(out, ids);
+
+    // Account follower count (used by the client's custom-formula `followers` var).
+    var followers = 0;
+    try {
+      var acc = metaGet_(GRAPH + '/' + ids.igId + '?fields=followers_count&access_token=' + encodeURIComponent(pt));
+      followers = Number(acc.followers_count) || 0;
+    } catch (eF) { /* ignore */ }
+
     return json({
       generatedAt: new Date().toISOString(),
-      page: { id: ids.igId, name: ids.pageName || '', username: '' },
+      page: { id: ids.igId, name: ids.pageName || '', username: '', followers: followers },
       posts: out
     });
   } catch (err) {
     return json({ error: String(err) });
   }
+}
+
+/**
+ * Cross-post matching: an IG post and its Facebook copy share the same caption
+ * (and are published within a short window). We fetch the page's Facebook videos
+ * with their view counts and match them to IG posts by normalized caption +
+ * timestamp (±3 days). When matched, `viewsFb` is set, `crossPosted` = true, and
+ * `views` becomes the combined IG + FB total.
+ */
+function matchCrossPosts_(posts, ids) {
+  var fb = fetchFbVideosForMatch_(ids);
+  if (!fb.length) return;
+  var WINDOW = 3 * 24 * 3600 * 1000; // 3 days
+  posts.forEach(function (p) {
+    var pc = normCap_(p.caption);
+    if (!pc || pc.length < 12) return;   // too short to match reliably
+    var pt = Date.parse(p.timestamp);
+    var best = null;
+    for (var i = 0; i < fb.length; i++) {
+      var f = fb[i];
+      if (!f.cap) continue;
+      var head = pc.slice(0, 40), fhead = f.cap.slice(0, 40);
+      var match = (pc === f.cap) || f.cap.indexOf(head) === 0 || pc.indexOf(fhead) === 0;
+      if (!match) continue;
+      if (isNaN(pt) || isNaN(f.time) || Math.abs(pt - f.time) > WINDOW) continue;
+      if (!best || f.views > best.views) best = f;
+    }
+    if (best) {
+      p.viewsFb = best.views;
+      p.crossPosted = true;
+      p.views = (Number(p.viewsIg) || 0) + best.views;
+    }
+  });
+}
+
+/** Fetches recent Facebook page videos with view counts, for cross-post matching. */
+function fetchFbVideosForMatch_(ids) {
+  var out = [];
+  try {
+    var url = GRAPH + '/' + ids.pageId + '/videos?fields=' +
+      encodeURIComponent('id,title,description,created_time,views') +
+      '&limit=50&access_token=' + encodeURIComponent(ids.pageToken);
+    var pages = 0;
+    while (url && pages < 3) {
+      var r = metaGet_(url);
+      (r.data || []).forEach(function (v) {
+        out.push({
+          cap: normCap_(v.description || v.title || ''),
+          time: Date.parse(v.created_time),
+          views: Number(v.views) || 0
+        });
+      });
+      url = (r.paging && r.paging.next) ? r.paging.next : null;
+      pages++;
+    }
+  } catch (e) { /* FB videos unavailable — leave cross-post data empty */ }
+  return out;
+}
+
+/** Normalizes a caption for fuzzy cross-platform matching. */
+function normCap_(s) {
+  return String(s || '')
+    .toLowerCase()
+    .replace(/https?:\/\/\S+/g, '')   // drop URLs
+    .replace(/[^a-z0-9]+/g, ' ')      // keep alphanumerics only
+    .trim()
+    .slice(0, 120);
 }
 
 /**

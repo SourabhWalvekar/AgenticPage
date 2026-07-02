@@ -25,11 +25,60 @@
     type: "ALL",
     search: "",
     sort: "views",        // default sort: views
+    formula: "",          // custom sort formula (used when sort === "custom")
     order: "desc",
     count: 0,             // default: show All
     range: null,          // { start: Date, end: Date } or null = all-time (set to last-week on load)
     page: { name: "Conscious Planet", logo: "" },
+    followers: 0,         // account follower count (for formula var `followers`)
   };
+
+  /* =================================================================
+   *  CUSTOM SORT FORMULA — safe evaluator
+   * ================================================================= */
+  const FORMULA_VARS = [
+    "views", "viewsIg", "viewsFb", "reach", "likes", "comments", "shares",
+    "saves", "interactions", "followerReach", "nonFollowerReach",
+    "retention3s", "avgWatchTime", "followers",
+  ];
+  let _fCache = { src: null, fn: null, err: null };
+
+  function compileFormula(src) {
+    const cleaned = (src || "").trim();
+    if (_fCache.src === cleaned) return _fCache;
+    if (!cleaned) { _fCache = { src: cleaned, fn: null, err: null }; return _fCache; }
+    // Only allow variable names, numbers and basic math — no arbitrary JS.
+    if (!/^[\sA-Za-z0-9_+\-*/().,%]+$/.test(cleaned)) {
+      _fCache = { src: cleaned, fn: null, err: "Invalid character in formula" };
+      return _fCache;
+    }
+    try {
+      const fn = new Function(
+        ...FORMULA_VARS, "min", "max", "abs", "sqrt", "log", "pow",
+        `"use strict"; return (${cleaned});`
+      );
+      _fCache = { src: cleaned, fn, err: null };
+    } catch (e) {
+      _fCache = { src: cleaned, fn: null, err: "Syntax error" };
+    }
+    return _fCache;
+  }
+
+  function evalFormula(src, p) {
+    const c = compileFormula(src);
+    if (!c.fn) return 0;
+    const n = (x) => Number(x) || 0;
+    try {
+      const v = c.fn(
+        n(p.views), n(p.viewsIg), n(p.viewsFb), n(p.reach), n(p.likes),
+        n(p.comments), n(p.shares), n(p.saves), n(p.interactions),
+        n(p.followerReach), n(p.nonFollowerReach), n(p.retention3s),
+        n(p.avgWatchTime), n(state.followers),
+        Math.min, Math.max, Math.abs, Math.sqrt, Math.log, Math.pow
+      );
+      return isFinite(v) ? v : 0;
+    } catch (e) { return 0; }
+  }
 
   /* =================================================================
    *  SAMPLE DATA (demo / fallback) — mirrors GET {SCRIPT_URL}?mode=posts
@@ -226,6 +275,7 @@
     list.sort((a, b) => {
       let av, bv;
       if (key === "date") { av = new Date(a.timestamp).getTime(); bv = new Date(b.timestamp).getTime(); }
+      else if (key === "custom") { av = evalFormula(state.formula, a); bv = evalFormula(state.formula, b); }
       else { av = Number(a[key]) || 0; bv = Number(b[key]) || 0; }
       return state.order === "asc" ? av - bv : bv - av;
     });
@@ -274,7 +324,15 @@
       ? `<span class="tag-ico tag-ico--cross" title="Cross-posted to Facebook & Instagram">${svg(P.crosspost)}</span>`
       : "";
 
-    return `<article class="tile" data-id="${p.id}">
+    // Custom-formula score chip (only when sorting by a valid formula)
+    let scoreChip = "";
+    if (state.sort === "custom" && compileFormula(state.formula).fn) {
+      const sc = evalFormula(state.formula, p);
+      scoreChip = `<span class="tile-score" title="Custom formula score">Σ ${fmtCompact(Math.round(sc))}</span>`;
+    }
+    const perma = escapeHtml(p.permalink || "");
+
+    return `<article class="tile${perma ? " tile--clickable" : ""}" data-id="${p.id}"${perma ? ` data-permalink="${perma}"` : ""} title="${perma ? "Open this post ↗" : ""}">
       <div class="tile-media">
         ${img}
         <span class="tile-tags">
@@ -282,12 +340,14 @@
           <span class="tag-ico ${p.collab === "SINGULAR" ? "" : "tag-ico--collab"}" title="${collabTitle}">${cm.ico}</span>
           ${crossChip}
         </span>
+        <span class="tile-open" aria-hidden="true">Open ↗</span>
         <button class="tile-remove" data-remove="${p.id}" title="Remove this post">✕</button>
       </div>
       <div class="tile-body">
         <div class="tile-head">
           ${avatarHtml()}
           <span class="tile-page">${escapeHtml((state.page && state.page.name) || "Conscious Planet")}</span>
+          ${scoreChip}
           <span class="tile-date">${fmtDate(p.timestamp)}</span>
         </div>
         ${cap}
@@ -300,9 +360,6 @@
           ${metricHtml(P.saves, "Saves", p.saves)}
         </div>
         ${insightsHtml(p)}
-      </div>
-      <div class="tile-foot">
-        <a class="tile-link" href="${p.permalink || "#"}" target="_blank" rel="noopener">View on Instagram ↗</a>
       </div>
     </article>`;
   }
@@ -629,7 +686,44 @@
     });
 
     // sort + order
-    $("sortSelect").addEventListener("change", (e) => { state.sort = e.target.value; render(); });
+    $("sortSelect").addEventListener("change", (e) => {
+      state.sort = e.target.value;
+      updateFormulaBar();
+      render();
+    });
+
+    // ----- custom formula bar -----
+    function updateFormulaBar() {
+      const on = state.sort === "custom";
+      $("formulaBar").hidden = !on;
+      if (on) { updateFormulaStatus(); setTimeout(() => $("formulaInput").focus(), 0); }
+    }
+    function updateFormulaStatus() {
+      const el = $("formulaStatus");
+      const src = state.formula.trim();
+      if (!src) { el.textContent = "Enter a formula to rank posts"; el.className = "formula-status"; return; }
+      const c = compileFormula(src);
+      if (c.err) { el.textContent = "⚠ " + c.err; el.className = "formula-status is-err"; }
+      else { el.textContent = "✓ Ranking by your formula"; el.className = "formula-status is-ok"; }
+    }
+    let _fTimer = null;
+    $("formulaInput").addEventListener("input", (e) => {
+      state.formula = e.target.value;
+      updateFormulaStatus();
+      clearTimeout(_fTimer);
+      _fTimer = setTimeout(render, 250);
+    });
+    $("formulaClear").addEventListener("click", () => {
+      state.formula = ""; $("formulaInput").value = ""; updateFormulaStatus(); render();
+    });
+    document.querySelectorAll(".formula-presets [data-formula]").forEach((b) => {
+      b.addEventListener("click", () => {
+        state.formula = b.dataset.formula;
+        $("formulaInput").value = b.dataset.formula;
+        updateFormulaStatus();
+        render();
+      });
+    });
     $("orderBtn").addEventListener("click", () => {
       state.order = state.order === "desc" ? "asc" : "desc";
       $("orderBtn").dataset.order = state.order;
@@ -641,12 +735,20 @@
     // count
     $("countSelect").addEventListener("change", (e) => { state.count = parseInt(e.target.value, 10) || 0; render(); });
 
-    // remove tile (delegated)
+    // tile interactions (delegated): remove button, or open the post
     $("tiles").addEventListener("click", (e) => {
-      const btn = e.target.closest("[data-remove]");
-      if (!btn) return;
-      state.removed.add(btn.dataset.remove);
-      render();
+      const rm = e.target.closest("[data-remove]");
+      if (rm) {
+        state.removed.add(rm.dataset.remove);
+        render();
+        return;
+      }
+      // Ignore clicks on interactive bits (metric hover popover, etc.)
+      if (e.target.closest(".metric--views")) return;
+      const tile = e.target.closest(".tile[data-permalink]");
+      if (tile && tile.dataset.permalink) {
+        window.open(tile.dataset.permalink, "_blank", "noopener");
+      }
     });
 
     // reset
@@ -654,9 +756,12 @@
       state.type = "ALL";
       state.search = "";
       state.sort = "views";
+      state.formula = "";
       state.order = "desc";
       state.count = 0;
       state.removed.clear();
+      $("formulaBar").hidden = true;
+      $("formulaInput").value = "";
       const r = presetRange("last7");
       state.range = r ? { start: r.start, end: r.end } : null;
       picker.draftStart = r ? r.start : null; picker.draftEnd = r ? r.end : null; picker.activePreset = "last7";
@@ -695,7 +800,7 @@
         }
       } catch (e) { console.warn("Posts fetch failed, using sample data.", e); }
     }
-    return { posts: buildSamplePosts(), generatedAt: new Date().toISOString(), page: null, live: false };
+    return { posts: buildSamplePosts(), generatedAt: new Date().toISOString(), page: { name: "Conscious Planet", followers: 1250000 }, live: false };
   }
 
   function setStatus(live) {
@@ -736,6 +841,7 @@
     if (res.page && res.page.name) {
       $("pageMeta").innerHTML = `Instagram <strong>${escapeHtml(res.page.name)}</strong>`;
       state.page = { name: res.page.name, logo: res.page.logo || res.page.profilePicture || state.page.logo || "" };
+      if (res.page.followers != null) state.followers = Number(res.page.followers) || 0;
     }
   }
 
