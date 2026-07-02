@@ -49,26 +49,23 @@
 
     <!-- Controls -->
     <section class="controls card">
-      <!-- Row 1: page + type filter -->
+      <!-- Single compact row: page + type + date + search + sort + order + count -->
       <div class="controls-row">
         <div class="ctrl">
           <label for="pageSelect">Page</label>
           <select id="pageSelect"></select>
         </div>
 
-        <div class="ctrl ctrl--grow">
-          <label>Type</label>
-          <div id="typeFilter" class="segmented" role="tablist">
-            <button class="seg active" data-type="ALL">All</button>
-            <button class="seg" data-type="CAROUSEL">🎠 Carousel</button>
-            <button class="seg" data-type="REEL">🎬 Reel</button>
-            <button class="seg" data-type="CREATIVE">🖼️ Creative</button>
-          </div>
+        <div class="ctrl">
+          <label for="typeSelect">Type</label>
+          <select id="typeSelect">
+            <option value="ALL" selected>All types</option>
+            <option value="CAROUSEL">Carousel</option>
+            <option value="REEL">Reel</option>
+            <option value="CREATIVE">Creative</option>
+          </select>
         </div>
-      </div>
 
-      <!-- Row 2: date range + search + sort + count -->
-      <div class="controls-row">
         <div class="ctrl date-ctrl">
           <label>Date range</label>
           <button id="dateBtn" class="date-btn" type="button">

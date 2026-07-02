@@ -688,8 +688,10 @@ function getPosts(e) {
     var pt = ids.pageToken;
 
     // Field expansion pulls per-post insights in the same call.
+    // owner + coauthor_producers let us classify singular vs collab posts.
     var fields = 'id,caption,media_type,media_product_type,timestamp,' +
       'like_count,comments_count,media_url,thumbnail_url,permalink,' +
+      'owner{id,username},coauthor_producers{id,username},' +
       'insights.metric(reach,views,total_interactions,saved,shares)';
 
     var url = GRAPH + '/' + ids.igId + '/media?fields=' + encodeURIComponent(fields) +
@@ -699,7 +701,7 @@ function getPosts(e) {
     var pageCount = 0;
     while (url && pageCount < 6 && out.length < limit) {
       var r = metaGet_(url);
-      (r.data || []).forEach(function (m) { out.push(mapPost_(m)); });
+      (r.data || []).forEach(function (m) { out.push(mapPost_(m, ids.igId)); });
       url = (r.paging && r.paging.next) ? r.paging.next : null;
       pageCount++;
     }
@@ -715,7 +717,7 @@ function getPosts(e) {
 }
 
 /** Normalizes one IG media object (with expanded insights) into a flat tile. */
-function mapPost_(m) {
+function mapPost_(m, selfIgId) {
   var ins = {};
   if (m.insights && m.insights.data) {
     m.insights.data.forEach(function (i) {
@@ -726,12 +728,26 @@ function mapPost_(m) {
   var type = (m.media_product_type === 'REELS') ? 'REEL'
     : (m.media_type === 'CAROUSEL_ALBUM' ? 'CAROUSEL' : 'CREATIVE');
 
+  // Collab classification.
+  //  - No co-authors                       -> 'SINGULAR'
+  //  - Co-authors + we own the media        -> 'COLLAB_US'    (we initiated)
+  //  - Co-authors + someone else owns it    -> 'COLLAB_OTHER' (invited to their post)
+  var coauthors = (m.coauthor_producers && m.coauthor_producers.data) || [];
+  var ownerId = (m.owner && m.owner.id) || '';
+  var collab = 'SINGULAR';
+  if (coauthors.length) {
+    collab = (ownerId && selfIgId && String(ownerId) !== String(selfIgId)) ? 'COLLAB_OTHER' : 'COLLAB_US';
+  }
+  var collabWith = coauthors.map(function (c) { return c.username || c.id; }).filter(Boolean);
+
   return {
     id: m.id,
     caption: m.caption || '',
     mediaType: m.media_type || '',
     productType: m.media_product_type || '',
     type: type,
+    collab: collab,
+    collabWith: collabWith,
     timestamp: m.timestamp || '',
     thumbnail: m.thumbnail_url || m.media_url || '',
     permalink: m.permalink || '',

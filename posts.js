@@ -28,6 +28,7 @@
     order: "desc",
     count: 30,
     range: null,          // { start: Date, end: Date } or null = all-time
+    page: { name: "Conscious Planet", logo: "" },
   };
 
   /* =================================================================
@@ -82,10 +83,16 @@
       const saves = rand(30, 1500);
       const interactions = likes + comments + shares + saves;
 
+      // Mix of singular + collab (initiated by us / by others) for demo.
+      const collab = (i % 5 === 0) ? "COLLAB_US" : (i % 7 === 0 ? "COLLAB_OTHER" : "SINGULAR");
+      const collabWith = collab === "SINGULAR" ? [] : ["partneraccount"];
+
       posts.push({
         id: "sample_" + (1000 + i),
         caption: CAPTIONS[i],
         type: type,
+        collab: collab,
+        collabWith: collabWith,
         mediaType: type === "CAROUSEL" ? "CAROUSEL_ALBUM" : (isReel ? "VIDEO" : "IMAGE"),
         productType: isReel ? "REELS" : "FEED",
         timestamp: ts,
@@ -133,12 +140,39 @@
   function endOfDay(d) { const x = new Date(d); x.setHours(23, 59, 59, 999); return x; }
 
   /* =================================================================
-   *  TYPE META (icons / labels / css class)
+   *  ICONS — monochrome, Material-style SVG glyphs (single gray color)
    * ================================================================= */
+  function svg(path, cls) {
+    return `<svg class="pico ${cls || ""}" viewBox="0 0 24 24" aria-hidden="true">${path}</svg>`;
+  }
+  const P = {
+    carousel: `<path fill="currentColor" d="M22 16V4c0-1.1-.9-2-2-2H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2zm-11-4l2.03 2.71L16 11l4 5H8l3-4zM2 6v14c0 1.1.9 2 2 2h14v-2H4V6H2z"/>`,
+    reel: `<path fill="currentColor" d="M4 6.47L5.76 10H20v8H4V6.47M22 4h-4l2 4h-3l-2-4h-2l2 4h-3l-2-4H8l2 4H7L5 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V4z"/>`,
+    creative: `<path fill="currentColor" d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/>`,
+    person: `<path fill="currentColor" d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>`,
+    group: `<path fill="currentColor" d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/>`,
+    arrowOut: `<path fill="currentColor" d="M9 5v2h6.59L4 18.59 5.41 20 17 8.41V15h2V5z"/>`,
+    arrowIn: `<path fill="currentColor" d="M19 9h-2v6.59L5.41 4 4 5.41 15.59 17H9v2h10z"/>`,
+    views: `<path fill="currentColor" d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5C21.27 7.61 17 4.5 12 4.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/>`,
+    reach: `<path fill="currentColor" d="M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1zM8 13h8v-2H8v2zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5z"/>`,
+    likes: `<path fill="currentColor" d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>`,
+    comments: `<path fill="currentColor" d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/>`,
+    shares: `<path fill="currentColor" d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92s2.92-1.31 2.92-2.92-1.31-2.92-2.92-2.92z"/>`,
+    saves: `<path fill="currentColor" d="M17 3H7c-1.1 0-1.99.9-1.99 2L5 21l7-3 7 3V5c0-1.1-.9-2-2-2z"/>`,
+  };
+
+  /* type icon (monochrome, no text label) */
   const TYPE_META = {
-    CAROUSEL: { ico: "🎠", label: "Carousel", cls: "t-carousel" },
-    REEL:     { ico: "🎬", label: "Reel",     cls: "t-reel" },
-    CREATIVE: { ico: "🖼️", label: "Creative", cls: "t-creative" },
+    CAROUSEL: { ico: svg(P.carousel), label: "Carousel" },
+    REEL:     { ico: svg(P.reel),     label: "Reel" },
+    CREATIVE: { ico: svg(P.creative), label: "Creative" },
+  };
+
+  /* collab icon (monochrome) — singular vs collab initiated by us / by others */
+  const COLLAB_META = {
+    SINGULAR:     { ico: svg(P.person), label: "Single post" },
+    COLLAB_US:    { ico: svg(P.group) + svg(P.arrowOut, "pico-badge"), label: "Collab — initiated by us" },
+    COLLAB_OTHER: { ico: svg(P.group) + svg(P.arrowIn, "pico-badge"),  label: "Collab — by another account" },
   };
 
   /* =================================================================
@@ -189,37 +223,59 @@
   /* =================================================================
    *  RENDER
    * ================================================================= */
-  function metricHtml(ico, label, val) {
+  function metricHtml(icoPath, label, val) {
     return `<span class="metric" title="${label}: ${fmtFull(val)}">
-      <span class="m-ico">${ico}</span><span class="m-val">${fmtCompact(val)}</span>
+      ${svg(icoPath, "m-ico")}<span class="m-val">${fmtCompact(val)}</span>
     </span>`;
+  }
+
+  function avatarHtml() {
+    const pg = state.page || {};
+    const name = pg.name || "Page";
+    if (pg.logo) {
+      return `<img class="tile-avatar" src="${escapeHtml(pg.logo)}" alt="${escapeHtml(name)}"
+        onerror="this.outerHTML='<span class=\\'tile-avatar tile-avatar--ph\\'>${escapeHtml(name.charAt(0).toUpperCase())}</span>'" />`;
+    }
+    return `<span class="tile-avatar tile-avatar--ph">${escapeHtml(name.charAt(0).toUpperCase())}</span>`;
   }
 
   function tileHtml(p) {
     const tm = TYPE_META[p.type] || TYPE_META.CREATIVE;
+    const cm = COLLAB_META[p.collab] || COLLAB_META.SINGULAR;
     const cap = p.caption && p.caption.trim()
       ? `<div class="tile-cap">${escapeHtml(p.caption)}</div>`
       : `<div class="tile-cap empty">No caption</div>`;
+    const phIco = svg((P[p.type ? p.type.toLowerCase() : "creative"]) || P.creative, "ph-ico");
+    // Placeholder sits BEHIND the image; onerror simply hides a broken image
+    // (no HTML in the onerror attribute -> no quote-escaping issues).
     const img = p.thumbnail
-      ? `<img src="${p.thumbnail}" alt="Post thumbnail" loading="lazy" onerror="this.parentNode.innerHTML='<div class=\\'no-img\\'>${tm.ico}</div>'" />`
-      : `<div class="no-img">${tm.ico}</div>`;
+      ? `<div class="no-img">${phIco}</div><img src="${escapeHtml(p.thumbnail)}" alt="Post thumbnail" loading="lazy" onerror="this.style.display='none'" />`
+      : `<div class="no-img">${phIco}</div>`;
+    const collabTitle = cm.label + (p.collabWith && p.collabWith.length ? ` (with @${escapeHtml(p.collabWith.join(", @"))})` : "");
 
     return `<article class="tile" data-id="${p.id}">
       <div class="tile-media">
-        <span class="type-badge ${tm.cls}">${tm.ico} ${tm.label}</span>
-        <button class="tile-remove" data-remove="${p.id}" title="Remove this post">✕</button>
         ${img}
+        <span class="tile-tags">
+          <span class="tag-ico" title="${tm.label}">${tm.ico}</span>
+          <span class="tag-ico ${p.collab === "SINGULAR" ? "" : "tag-ico--collab"}" title="${collabTitle}">${cm.ico}</span>
+        </span>
+        <button class="tile-remove" data-remove="${p.id}" title="Remove this post">✕</button>
       </div>
       <div class="tile-body">
+        <div class="tile-head">
+          ${avatarHtml()}
+          <span class="tile-page">${escapeHtml((state.page && state.page.name) || "Conscious Planet")}</span>
+          <span class="tile-date">${fmtDate(p.timestamp)}</span>
+        </div>
         ${cap}
-        <div class="tile-date">${fmtDate(p.timestamp)}</div>
         <div class="tile-metrics">
-          ${metricHtml("👁️", "Views", p.views)}
-          ${metricHtml("📊", "Reach", p.reach)}
-          ${metricHtml("❤️", "Likes", p.likes)}
-          ${metricHtml("💬", "Comments", p.comments)}
-          ${metricHtml("🔁", "Shares", p.shares)}
-          ${metricHtml("🔖", "Saves", p.saves)}
+          ${metricHtml(P.views, "Views", p.views)}
+          ${metricHtml(P.reach, "Reach", p.reach)}
+          ${metricHtml(P.likes, "Likes", p.likes)}
+          ${metricHtml(P.comments, "Comments", p.comments)}
+          ${metricHtml(P.shares, "Shares", p.shares)}
+          ${metricHtml(P.saves, "Saves", p.saves)}
         </div>
       </div>
       <div class="tile-foot">
@@ -466,17 +522,23 @@
     const sel = $("pageSelect");
     const pages = (typeof POSTS_PAGES !== "undefined" && Array.isArray(POSTS_PAGES)) ? POSTS_PAGES : [{ value: "consciousplanet", label: "Conscious Planet", connected: true }];
     sel.innerHTML = pages.map((p) =>
-      `<option value="${p.value}" ${p.connected ? "" : "disabled"}>${p.label}${p.connected ? "" : " (soon)"}</option>`
+      `<option value="${p.value}" data-logo="${p.logo || ""}" ${p.connected ? "" : "disabled"}>${p.label}${p.connected ? "" : " (soon)"}</option>`
     ).join("");
+    const first = pages.find((p) => p.connected) || pages[0];
+    if (first) state.page = { name: first.label, logo: first.logo || "" };
   }
 
   function wireControls() {
-    // type segmented
-    $("typeFilter").addEventListener("click", (e) => {
-      const btn = e.target.closest(".seg");
-      if (!btn) return;
-      state.type = btn.dataset.type;
-      document.querySelectorAll("#typeFilter .seg").forEach((b) => b.classList.toggle("active", b === btn));
+    // type dropdown
+    $("typeSelect").addEventListener("change", (e) => {
+      state.type = e.target.value;
+      render();
+    });
+
+    // page selector — updates avatar/name on tiles
+    $("pageSelect").addEventListener("change", (e) => {
+      const opt = e.target.selectedOptions[0];
+      if (opt) state.page = { name: opt.textContent.replace(/\s*\(soon\)\s*$/, ""), logo: opt.dataset.logo || "" };
       render();
     });
 
@@ -531,7 +593,7 @@
       $("countSelect").value = "30";
       $("orderBtn").dataset.order = "desc";
       $("orderIco").textContent = "▼"; $("orderTxt").textContent = "Desc";
-      document.querySelectorAll("#typeFilter .seg").forEach((b) => b.classList.toggle("active", b.dataset.type === "ALL"));
+      $("typeSelect").value = "ALL";
       setDateLabel("maximum", null);
       render();
     }
@@ -575,6 +637,8 @@
       id: p.id,
       caption: p.caption || "",
       type: p.type || "CREATIVE",
+      collab: p.collab || "SINGULAR",
+      collabWith: Array.isArray(p.collabWith) ? p.collabWith : [],
       mediaType: p.mediaType || "",
       productType: p.productType || "",
       timestamp: p.timestamp || "",
@@ -592,6 +656,7 @@
     $("generatedAt").textContent = "Snapshot: " + fmtDateTime(res.generatedAt || new Date().toISOString());
     if (res.page && res.page.name) {
       $("pageMeta").innerHTML = `Instagram <strong>${escapeHtml(res.page.name)}</strong>`;
+      state.page = { name: res.page.name, logo: res.page.logo || res.page.profilePicture || state.page.logo || "" };
     }
   }
 
